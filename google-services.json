@@ -1,0 +1,135 @@
+{
+  "project_info": {
+    "project_number": "407760094478",
+    "firebase_url": "https://om-ornament-default-rtdb.firebaseio.com",
+    "project_id": "om-ornament",
+    "storage_bucket": "om-ornament.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407760094478:android:be8cab8656eb33c465c35f",
+        "android_client_info": {
+          "package_name": "com.example.admin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "407760094478-f0bv89252mcklefdg36qcisoc96upakp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.admin",
+            "certificate_hash": "f91d7102f84df8ed86ab028e77401c556e616bf4"
+          }
+        },
+        {
+          "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNk6BxBxAlIXXT-tOy2kH4QxR498m7Pvo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "407760094478-brkirvb3s8loi227f3328hf2pmq5nkec.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.omornament.omOrnament"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407760094478:android:84fd1af902629ddd65c35f",
+        "android_client_info": {
+          "package_name": "com.omornament.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNk6BxBxAlIXXT-tOy2kH4QxR498m7Pvo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "407760094478-brkirvb3s8loi227f3328hf2pmq5nkec.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.omornament.omOrnament"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:407760094478:android:c7c9bfa6f714d99465c35f",
+        "android_client_info": {
+          "package_name": "com.omornament.om_ornament"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "407760094478-94j1letfff5vcoo62ua3tok9kv4ucvsp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.omornament.om_ornament",
+            "certificate_hash": "f91d7102f84df8ed86ab028e77401c556e616bf4"
+          }
+        },
+        {
+          "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNk6BxBxAlIXXT-tOy2kH4QxR498m7Pvo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "407760094478-brkirvb3s8loi227f3328hf2pmq5nkec.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.omornament.omOrnament"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
