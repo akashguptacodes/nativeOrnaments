@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+
+// Configure Google Sign-In with the Web Client ID
+// The Web Client ID is used to get the idToken for Firebase auth
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com',
+});
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -11,6 +18,50 @@ export default function LoginScreen({ navigation }) {
   const [obscureText, setObscureText] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrorMessage('');
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const userInfo = await GoogleSignin.signIn();
+      // Get the id token to create a Firebase credential
+      const idToken = userInfo.data?.idToken || userInfo.idToken;
+      if (!idToken) {
+        throw new Error('Failed to get ID token from Google');
+      }
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      const user = userCredential.user;
+      
+      const { ref, get, set } = require('firebase/database');
+      const { database } = require('../config/firebase');
+      const userRef = ref(database, 'Users/' + user.uid);
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) {
+        await set(userRef, {
+          'Firm Name': user.displayName || 'Google User',
+          'Address': '',
+          'Contact': '',
+          'Email': user.email || '',
+          'createdAt': Date.now()
+        });
+      }
+    } catch (error) {
+      console.log('Google Sign-In Error:', error);
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled — do nothing
+      } else if (error.code === statusCodes.IN_PROGRESS) {
+        setErrorMessage('Sign in already in progress.');
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setErrorMessage('Google Play Services not available.');
+      } else {
+        setErrorMessage(error.message || 'Google sign-in failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -49,7 +100,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.subtitle}>Welcome Back</Text>
-          <Text style={styles.title}>ADORNIA</Text>
+          <Text style={styles.title}>OM ORNAMENTS</Text>
           
           <View style={styles.inputContainer}>
             <Ionicons name="mail-outline" size={20} color="#9C9281" style={styles.inputIcon} />
@@ -88,9 +139,15 @@ export default function LoginScreen({ navigation }) {
           {isLoading ? (
             <ActivityIndicator size="large" color="#F5B041" style={{ marginVertical: 20 }} />
           ) : (
-            <TouchableOpacity style={styles.button} onPress={handleLogin}>
-              <Text style={styles.buttonText}>LOGIN</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={styles.button} onPress={handleLogin}>
+                <Text style={styles.buttonText}>LOGIN</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn}>
+                <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           <View style={styles.footerRow}>
@@ -147,9 +204,21 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   buttonText: { fontWeight: 'bold', color: 'black', fontSize: 14, letterSpacing: 1 },
+
+  googleBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#EA4335',
+    paddingVertical: 15,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  googleBtnText: { fontWeight: 'bold', color: 'white', fontSize: 14, letterSpacing: 1 },
   
   footerRow: { flexDirection: 'row', alignItems: 'center' },
   footerText: { color: '#9C9281', fontSize: 14 },

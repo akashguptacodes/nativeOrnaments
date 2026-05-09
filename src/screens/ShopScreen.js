@@ -154,7 +154,7 @@ export default function ShopScreen({ route, navigation }) {
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setMenuVisible(true)}><Ionicons name="menu" size={28} color="white" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>ADORNIA</Text>
+        <Text style={styles.headerTitle}>OM ORNAMENTS</Text>
         <View style={{ width: 24 }} />
       </View>
 

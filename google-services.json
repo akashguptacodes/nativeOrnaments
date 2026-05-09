@@ -59,6 +59,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "407760094478-dltqjijuv77d9bjtr9olf7ijmpj6cb3t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.omornament.app",
+            "certificate_hash": "e75aa7559e36d5e6fd079be0a24b41cdfea00b57"
+          }
+        },
+        {
           "client_id": "407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com",
           "client_type": 3
         }

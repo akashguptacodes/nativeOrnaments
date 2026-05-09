@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "Adornia",
+    "name": "Om Ornaments",
     "slug": "om-ornament",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo om.png",
     "userInterfaceStyle": "light",
+    "scheme": "omornament",
     "newArchEnabled": true,
     "plugins": [
       [
@@ -21,7 +22,8 @@
             }
           }
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -34,7 +36,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo om.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.omornament.app",

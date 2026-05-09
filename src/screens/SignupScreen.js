@@ -1,11 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { createUserWithEmailAndPassword, PhoneAuthProvider, signInWithCredential, GoogleAuthProvider } from 'firebase/auth';
+import { createUserWithEmailAndPassword, PhoneAuthProvider, signInWithCredential, GoogleAuthProvider, signInWithPhoneNumber } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
-import { auth, database } from '../config/firebase';
-import { WebView } from 'react-native-webview';
-import * as Google from 'expo-auth-session/providers/google';
+import { auth, database, firebaseConfig } from '../config/firebase';
+import { RNRecaptcha, FirebaseApplicationVerifier } from '../utils/RNRecaptcha';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+
+// Configure Google Sign-In with the Web Client ID
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com',
+});
 
 export default function SignupScreen({ navigation }) {
   const [step, setStep] = useState(1);
@@ -14,12 +19,13 @@ export default function SignupScreen({ navigation }) {
 
   // Step 1: Phone
   const [phone, setPhone] = useState('+91');
-  const [verificationId, setVerificationId] = useState(null);
+  const [confirmationResult, setConfirmationResult] = useState(null);
 
   // Step 2: OTP
   const [otp, setOtp] = useState('');
-  const [showRecaptcha, setShowRecaptcha] = useState(false);
-  const webViewRef = useRef(null);
+
+  // WebView reCAPTCHA modal ref
+  const recaptchaRef = useRef(null);
 
   // Step 3: Profile
   const [firmName, setFirmName] = useState('');
@@ -28,40 +34,46 @@ export default function SignupScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [obscureText, setObscureText] = useState(true);
 
-  // Google Auth
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || 'REPLACE_WITH_YOUR_WEB_CLIENT_ID',
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  });
-
-  React.useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      setIsLoading(true);
-      signInWithCredential(auth, credential)
-        .then(async (userCredential) => {
-          const user = userCredential.user;
-          const userRef = ref(database, 'Users/' + user.uid);
-          // Only create DB entry if it's a new user (or just overwrite empty ones)
-          // We can just use set to ensure data exists, taking care not to overwrite existing full data if they login again.
-          // For simplicity, we just set it here if they are "registering"
-          await set(userRef, {
-            'Firm Name': user.displayName || '',
-            'Address': '',
-            'Contact': '',
-            'Email': user.email || '',
-            'createdAt': Date.now()
-          });
-        })
-        .catch((error) => {
-          setErrorMessage(error.message);
-        })
-        .finally(() => {
-          setIsLoading(false);
+  // --- Native Google Sign-In ---
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrorMessage('');
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const userInfo = await GoogleSignin.signIn();
+      const idToken = userInfo.data?.idToken || userInfo.idToken;
+      if (!idToken) {
+        throw new Error('Failed to get ID token from Google');
+      }
+      const credential = GoogleAuthProvider.credential(idToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      const user = userCredential.user;
+      
+      const { get } = require('firebase/database');
+      const userRef = ref(database, 'Users/' + user.uid);
+      const snapshot = await get(userRef);
+      if (!snapshot.exists()) {
+        await set(userRef, {
+          'Firm Name': user.displayName || 'Google User',
+          'Address': '',
+          'Contact': '',
+          'Email': user.email || '',
+          'createdAt': Date.now()
         });
+      }
+    } catch (error) {
+      console.log('Google Sign-In Error:', error);
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled — do nothing
+      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setErrorMessage('Google Play Services not available.');
+      } else {
+        setErrorMessage(error.message || 'Google sign-in failed.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  }, [response]);
+  };
 
   // --- PRODUCTION PHONE AUTH FLOW ---
   const handleSendOTP = async () => {
@@ -71,23 +83,38 @@ export default function SignupScreen({ navigation }) {
     }
     setIsLoading(true);
     setErrorMessage('');
-    setShowRecaptcha(true);
-  };
-
-  const onRecaptchaVerify = async (token) => {
-    setShowRecaptcha(false);
     try {
-      const phoneProvider = new PhoneAuthProvider(auth);
-      const verifier = {
-        type: 'recaptcha',
-        verify: async () => token
-      };
-      const vId = await phoneProvider.verifyPhoneNumber(phone, verifier);
-      setVerificationId(vId);
+      console.log('📱 Starting OTP flow...');
+      console.log('📱 Sending OTP to:', phone);
+      
+      console.log('🔄 Opening reCAPTCHA modal...');
+      const token = await recaptchaRef.current.open();
+      
+      if (!token) {
+        throw new Error('Failed to solve reCAPTCHA');
+      }
+      
+      // Step 2: Use the perfectly shaped wrapper that guarantees a Promise
+      const verifier = new FirebaseApplicationVerifier(token);
+
+      console.log('🔄 Calling signInWithPhoneNumber...');
+      const confResult = await signInWithPhoneNumber(auth, phone, verifier);
+      console.log('✅ OTP sent successfully, confirmation result:', confResult);
+      setConfirmationResult(confResult);
       setStep(2);
     } catch (error) {
-      console.log('Phone auth error:', error);
-      setErrorMessage(error.message);
+      console.error('❌ Phone auth error:', error);
+      
+      let friendlyMessage = 'Failed to send OTP. Please try again.';
+      if (error.code === 'auth/invalid-phone-number') {
+        friendlyMessage = 'Invalid phone number format. Please check and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        friendlyMessage = 'Too many requests. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        friendlyMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      setErrorMessage(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -101,12 +128,29 @@ export default function SignupScreen({ navigation }) {
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const credential = PhoneAuthProvider.credential(verificationId, otp);
-      await signInWithCredential(auth, credential);
-      setStep(3);
+      console.log('🔐 Verifying OTP:', otp);
+      if (confirmationResult) {
+        console.log('✅ Confirmation result exists, confirming OTP...');
+        await confirmationResult.confirm(otp);
+        console.log('✅ OTP verified successfully');
+        setStep(3);
+      } else {
+        console.error('❌ No confirmation result found');
+        throw new Error('No confirmation result found. Please resend OTP.');
+      }
     } catch (error) {
-      console.log('OTP Verify Error:', error);
-      setErrorMessage('Invalid OTP. Please check the code and try again.');
+      console.error('❌ OTP Verify Error:', error);
+      
+      let friendlyMessage = 'Invalid OTP. Please check the code and try again.';
+      if (error.code === 'auth/invalid-verification-code') {
+        friendlyMessage = 'The OTP entered is incorrect.';
+      } else if (error.code === 'auth/code-expired') {
+        friendlyMessage = 'The OTP has expired. Please request a new one.';
+      } else if (error.code === 'auth/network-request-failed') {
+        friendlyMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      setErrorMessage(friendlyMessage);
     } finally {
       setIsLoading(false);
     }
@@ -151,51 +195,10 @@ export default function SignupScreen({ navigation }) {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      {showRecaptcha && (
-        <View style={StyleSheet.absoluteFill}>
-          <WebView
-            originWhitelist={['*']}
-            source={{ html: `
-              <html>
-                <head>
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-                  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-                </head>
-                <body style="background-color: #110F0A; display: flex; justify-content: center; align-items: center;">
-                  <div id="recaptcha-container"></div>
-                  <script>
-                    firebase.initializeApp({
-                      apiKey: "${process.env.EXPO_PUBLIC_FIREBASE_API_KEY}",
-                      authDomain: "${process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN}"
-                    });
-                    const recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                      size: 'normal',
-                      callback: (response) => {
-                        window.ReactNativeWebView.postMessage(response);
-                      }
-                    });
-                    recaptchaVerifier.render();
-                  </script>
-                </body>
-              </html>
-            ` }}
-            onMessage={(event) => {
-              onRecaptchaVerify(event.nativeEvent.data);
-            }}
-          />
-          <TouchableOpacity 
-            style={{ position: 'absolute', top: 40, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 5 }}
-            onPress={() => setShowRecaptcha(false)}
-          >
-            <Ionicons name="close" size={30} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <Text style={styles.subtitle}>Create Account</Text>
-          <Text style={styles.title}>ADORNIA</Text>
+          <Text style={styles.title}>OM ORNAMENTS</Text>
 
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
@@ -227,7 +230,7 @@ export default function SignupScreen({ navigation }) {
                     <View style={styles.divider} />
                   </View>
 
-                  <TouchableOpacity style={styles.googleBtn} onPress={() => promptAsync()} disabled={!request}>
+                  <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn}>
                     <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
                     <Text style={styles.googleBtnText}>Continue with Google</Text>
                   </TouchableOpacity>
@@ -309,6 +312,12 @@ export default function SignupScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Official Stable reCAPTCHA Modal */}
+      <RNRecaptcha 
+        ref={recaptchaRef} 
+        firebaseConfig={firebaseConfig} 
+      />
     </KeyboardAvoidingView>
   );
 }
