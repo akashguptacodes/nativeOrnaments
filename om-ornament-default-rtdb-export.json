@@ -80,11 +80,25 @@
       "Email": "deepakverma9031@gmail.com",
       "Firm Name": "deepak"
     },
+    "AoLu352rR7Zhgv8K85AEheqOz352": {
+      "Address": "Kripalpur, sonwani, ballia, uttar pradesh -277402",
+      "Contact": "9696560915",
+      "Email": "akashgupta.gdgmmmut@gmail.com",
+      "Firm Name": "Akash Gupta",
+      "createdAt": 1778344755041
+    },
     "BFtN5QNFrgPD1hRvylVE6umlTbF3": {
       "Address": "zamania",
       "Contact": "8299113286",
       "Email": "suniljaiswal0999.sl@gmail.com",
       "Firm Name": "Sunil jaiswal"
+    },
+    "Cy6fnnnlk8hV73hS2uJ83ryzZyH2": {
+      "Address": "Kripalpur, sonwani, ballia",
+      "Contact": "",
+      "Email": "rekhagupta9350@gmail.com",
+      "Firm Name": "Rekha Gupta",
+      "createdAt": 1778407063802
     },
     "Drs8Hh6Lw0XIBu6VTiQMxUveOVB2": {
       "Address": "Manduadih",
@@ -110,12 +124,6 @@
       "Email": "9vijayverma@gmail.com",
       "Firm Name": "vijay"
     },
-    "L0IaW6dnRtXeP8O8P4nSHdgvPrV2": {
-      "Address": "Madan Mohan Malaviya University of Technology, Gorakhpur",
-      "Contact": "9350526989",
-      "Email": "akashgupta7484@gmail.com",
-      "Firm Name": "Akash Gupta"
-    },
     "LGj3otVJ2oPuDtRWklfAO6DS3Nx1": {
       "Address": "zamania",
       "Contact": "9795686201",
@@ -128,11 +136,28 @@
       "Email": "pankajverma41794@gmail.com",
       "Firm Name": "Kanak Mandir Jewellers"
     },
+    "N0s57mh8asc37VHChOEesIqCTG33": {
+      "Address": "Madan Mohan Malaviya University of Technology, Gorakhpur",
+      "Contact": "+919350526989",
+      "Email": "akashgupta7484@gmail.com",
+      "Firm Name": "Akash Gupta",
+      "createdAt": 1778415085140,
+      "lastLogin": 1778417080280,
+      "provider": "google.com",
+      "role": "user"
+    },
     "N6wgu0dR5tWaJK34ODu7MY1tqUg2": {
       "Address": "heuyee",
       "Contact": "9304735742",
       "Email": "abc@gmail.com",
       "Firm Name": "abv"
+    },
+    "OW3b9JsNPUNeTuZQNt30MdXMVXq1": {
+      "Address": "",
+      "Contact": "",
+      "Email": "vshankargupta35@gmail.com",
+      "Firm Name": "Vijay Shankar Gupta",
+      "createdAt": 1778363567464
     },
     "R0tsFRPVrxYiTPAarAtJJjWWjTp1": {
       "Address": "sjsjj",
@@ -157,6 +182,14 @@
       "Contact": "8299202639",
       "Email": "vermaamit0999.av@gmail.com",
       "Firm Name": "om"
+    },
+    "ZxfhbqexYhMydZIC1ARZAjYsu5b2": {
+      "Address": "",
+      "Contact": "",
+      "Email": "av596539@gmail.com",
+      "Firm Name": "Archana Verma",
+      "createdAt": 1778410882323,
+      "provider": "google.com"
     },
     "arojDOYRFaXyFx230Ek6y20LPmT2": {
       "Address": "zamania",
@@ -194,6 +227,15 @@
       "Email": "sudheervrm5@gmail.com",
       "Firm Name": "sudheer jwellers"
     },
+    "kQt02NFK4RXnw24VuQDVSEza49m1": {
+      "Address": "Madan Mohan Malaviya University of Technology, Gorakhpur",
+      "Contact": "",
+      "Email": "akashgupta7484@gmail.com",
+      "Firm Name": "Akash Gupta",
+      "createdAt": 1778416708632,
+      "provider": "google.com",
+      "role": "user"
+    },
     "kxAl27flSyXD7ypqFyyDZZ1LOM82": {
       "Address": "Ballia",
       "Contact": "9721884028",
@@ -229,6 +271,14 @@
       "Contact": "7992326402",
       "Email": "sethshubham889@gmail.com",
       "Firm Name": "Shubham Verma"
+    },
+    "uLGHeZM9cOSJJNNyogVpsinHRYH2": {
+      "Address": "Madan Mohan Malaviya University of Technology, Gorakhpur",
+      "Contact": "+919350526989",
+      "Email": "akashgupta7484@gmail.com",
+      "Firm Name": "Akash Gupta",
+      "createdAt": 1778415085140,
+      "provider": "phone"
     }
   },
   "assetimage": {
@@ -813,13 +863,51 @@
   },
   "data": {
     "rates": {
-      "Gold api": "152900",
-      "RTGS Rate": "156042",
-      "Silver api": "260700",
-      "time": 1778148718104,
+      "Gold api": "152500",
+      "RTGS Rate": "155640",
+      "Silver api": "261999",
+      "time": 1778321448367,
       "चांदी बटिया Rate": "253500",
-      "नंबर Rate": "153760",
-      "ब्रेड Rate": "153000"
+      "नंबर Rate": "152360",
+      "ब्रेड Rate": "151600"
+    }
+  },
+  "recentViews": {
+    "5bS6KhPnYvT4t9JOPR9HN36KEKa2": {
+      "Kada_48": {
+        "category": "Kada",
+        "id": "Kada_48",
+        "img": {
+          "uri": "https://res.cloudinary.com/dhvsickga/image/upload/v1747221632/omornamentasset/Kada/e2eebsobhy4e0rit8nv8.jpg"
+        },
+        "material": "Premium Quality",
+        "title": "Kada 49",
+        "viewedAt": 1778406813948
+      }
+    }
+  },
+  "wishlist": {
+    "5bS6KhPnYvT4t9JOPR9HN36KEKa2": {
+      "Jodha Ring_9": {
+        "category": "Jodha Ring",
+        "id": "Jodha Ring_9",
+        "img": {
+          "uri": "https://res.cloudinary.com/dhvsickga/image/upload/v1769763329/omornamentasset/Jodha%20Ring/j3ng79bxetxoamigaroq.jpg"
+        },
+        "material": "Premium Quality",
+        "savedAt": 1778406812911,
+        "title": "Jodha Ring 10"
+      },
+      "Kada_48": {
+        "category": "Kada",
+        "id": "Kada_48",
+        "img": {
+          "uri": "https://res.cloudinary.com/dhvsickga/image/upload/v1747221632/omornamentasset/Kada/e2eebsobhy4e0rit8nv8.jpg"
+        },
+        "material": "Premium Quality",
+        "savedAt": 1778406815216,
+        "title": "Kada 49"
+      }
     }
   }
 }

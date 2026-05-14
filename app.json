@@ -2,12 +2,12 @@
   "expo": {
     "name": "Om Ornaments",
     "slug": "om-ornament",
-    "version": "1.0.0",
+    "version": "1.0.7",
     "orientation": "portrait",
-    "icon": "./assets/logo om.png",
+    "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "light",
     "scheme": "omornament",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "plugins": [
       [
         "expo-build-properties",
@@ -15,6 +15,7 @@
           "android": {
             "minSdkVersion": 24,
             "kotlinVersion": "2.0.21",
+            "enableMultiDex": true,
             "packagingOptions": {
               "pickFirst": [
                 "**/libc++_shared.so"
@@ -23,7 +24,9 @@
           }
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -32,14 +35,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.omornament.app"
+      "bundleIdentifier": "com.omornament.omOrnament",
+      "buildNumber": "9"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo om.png",
+        "foregroundImage": "./assets/app_icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.omornament.app",
+      "package": "com.omornament.om_ornament",
+      "versionCode": 9,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true
     },
@@ -48,7 +53,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "385644b4-fc0d-4bea-aeb7-b7b5db2f2fd8"
+        "projectId": "f78f8db5-b535-4bb2-b603-7f75df8f0abb"
       }
     }
   }

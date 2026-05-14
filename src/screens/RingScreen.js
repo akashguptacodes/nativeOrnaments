@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ImageBackground, TouchableOpacity, FlatList, ActivityIndicator, Modal } from 'react-native';
-import { ref, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -17,8 +16,8 @@ export default function RingScreen({ route, navigation }) {
 
   const fetchImages = async () => {
     try {
-      const dbRef = ref(database, `assetimage/${category}`);
-      const snapshot = await get(dbRef);
+      const dbRef = database().ref(`assetimage/${category}`);
+      const snapshot = await dbRef.once('value');
       if (snapshot.exists()) {
         const data = snapshot.val();
         let urls = [];

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ref, onValue, remove, set } from 'firebase/database';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
 
@@ -16,14 +15,14 @@ export default function SavedScreen({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    const uid = auth().currentUser?.uid;
     if (!uid) {
       setIsLoading(false);
       return;
     }
 
-    const wishRef = ref(database, `wishlist/${uid}`);
-    const unsubWish = onValue(wishRef, (snapshot) => {
+    const wishRef = database().ref(`wishlist/${uid}`);
+    const unsubWish = (snapshot) => {
       if (snapshot.exists()) {
         const items = Object.values(snapshot.val());
         items.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
@@ -32,10 +31,11 @@ export default function SavedScreen({ navigation }) {
         setWishlistItems([]);
       }
       setIsLoading(false);
-    });
+    };
+    wishRef.on('value', unsubWish);
 
-    const recentRef = ref(database, `recentViews/${uid}`);
-    const unsubRecent = onValue(recentRef, (snapshot) => {
+    const recentRef = database().ref(`recentViews/${uid}`);
+    const unsubRecent = (snapshot) => {
       if (snapshot.exists()) {
         const items = Object.values(snapshot.val());
         items.sort((a, b) => (b.viewedAt || 0) - (a.viewedAt || 0));
@@ -43,19 +43,20 @@ export default function SavedScreen({ navigation }) {
       } else {
         setRecentItems([]);
       }
-    });
+    };
+    recentRef.on('value', unsubRecent);
 
     return () => {
-      unsubWish();
-      unsubRecent();
+      wishRef.off('value', unsubWish);
+      recentRef.off('value', unsubRecent);
     };
   }, []);
 
   const removeFromWishlist = async (itemId) => {
-    const uid = auth.currentUser?.uid;
+    const uid = auth().currentUser?.uid;
     if (!uid) return;
     try {
-      await remove(ref(database, `wishlist/${uid}/${itemId}`));
+      await database().ref(`wishlist/${uid}/${itemId}`).remove();
     } catch (e) {
       console.log('Error removing from wishlist', e);
     }

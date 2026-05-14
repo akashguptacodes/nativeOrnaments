@@ -1,26 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ImageBackground } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ImageBackground, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ref, onValue, get, set, remove } from 'firebase/database';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
 
 const { width } = Dimensions.get('window');
 
-
+const BANNERS = [
+  { id: '1', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1743499679/omornamentasset/Haar/ane0psszhxsolspgypba.jpg' }, title: 'Luxurious Haar', subtitle: 'Royal Collection' },
+  { id: '2', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1747205159/omornamentasset/Kada/defu464ep7wh0z0tjbgw.jpg' }, title: 'Elegant Bangles', subtitle: 'Diamond Filigree' },
+  { id: '3', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1743232256/omornamentasset/Ring/shfy9g49opgrm6tsx2wk.jpg' }, title: 'Classic Rings', subtitle: 'Timeless Beauty' },
+  { id: '4', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1746445959/omornamentasset/Mang%20Tika/hgb72j1inttqek4apzft.jpg' }, title: 'Exquisite Mangtika', subtitle: 'Bridal Essentials' },
+];
 
 export default function HomeScreen({ navigation }) {
-  const [rates, setRates] = useState({ gold24: '...', gold22: '...', gold18: '...', silver: '...' });
+  const [banners, setBanners] = useState(BANNERS);
+  const [rates, setRates] = useState({ goldApi: '...', silverApi: '...', rtgsRate: '...', silverBatiya: '...', numberRate: '...', breadRate: '...' });
   const [categories, setCategories] = useState([]);
   const [featured, setFeatured] = useState([]);
   const [menuVisible, setMenuVisible] = useState(false);
   const [wishlistIds, setWishlistIds] = useState(new Set());
+  const [activeBanner, setActiveBanner] = useState(0);
+  const flatListRef = useRef(null);
 
   useEffect(() => {
+    // Fetch Categories
+    const catRef = database().ref('assetimage');
+    catRef.on('value', (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const catList = Object.keys(data).filter(k => k !== '_initialized').map(name => {
+          const content = data[name];
+          let firstImg = null;
+          if (Array.isArray(content) && content.length > 0) firstImg = content[0];
+          else if (typeof content === 'object') {
+            const firstKey = Object.keys(content).find(k => k !== '_initialized');
+            if (firstKey) {
+              const item = content[firstKey];
+              firstImg = typeof item === 'object' ? item.image : item;
+            }
+          }
+          return {
+            id: name,
+            name: name,
+            img: firstImg ? { uri: firstImg } : BANNERS[0].img
+          };
+        });
+        setCategories(catList);
+      }
+    });
+
+    // Fetch Dynamic Banners
+    const bannerRef = database().ref('data/carousel');
+    bannerRef.on('value', (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const bannerList = Array.isArray(data) ? data : Object.values(data);
+        if (bannerList.length > 0) {
+          setBanners(bannerList.map((item, i) => ({ 
+            id: `dyn_${i}`, 
+            img: { uri: item.img }, 
+            title: item.title || 'Latest Piece', 
+            subtitle: item.subtitle || 'Exclusive Collection' 
+          })));
+        }
+      }
+    });
     // Fetch Rates
-    const dbRef = ref(database, 'data/rates');
-    const unsubscribeRates = onValue(dbRef, (snapshot) => {
+    const dbRef = database().ref('data/rates');
+    const onRatesChange = (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setRates(prev => ({
@@ -31,21 +80,19 @@ export default function HomeScreen({ navigation }) {
           breadRate: data['ब्रेड Rate'] || '...'
         }));
       }
-    });
+    };
+    dbRef.on('value', onRatesChange);
 
-    // Fetch Live API Rates (GoldAPI.io - requires API Key)
+    // Fetch Live API Rates
     const fetchLiveRates = async () => {
       const apiKey = process.env.EXPO_PUBLIC_GOLD_API_KEY;
       if (!apiKey) return;
       try {
         const headers = { 'x-access-token': apiKey, 'Content-Type': 'application/json' };
-        
-        // Fetch Gold
         const goldRes = await fetch('https://www.goldapi.io/api/XAU/INR', { headers });
         const goldData = await goldRes.json();
         const goldPerGram = goldData.price_gram_24k ? goldData.price_gram_24k.toFixed(2) : '...';
 
-        // Fetch Silver
         const silverRes = await fetch('https://www.goldapi.io/api/XAG/INR', { headers });
         const silverData = await silverRes.json();
         const silverPerGram = silverData.price_gram_24k ? silverData.price_gram_24k.toFixed(2) : '...';
@@ -57,66 +104,76 @@ export default function HomeScreen({ navigation }) {
     };
     fetchLiveRates();
 
-    // Fetch Images for Categories and Featured
-    const imgRef = ref(database, 'assetimage');
-    get(imgRef).then((snapshot) => {
+    // Fetch Featured Items from assetimage
+    const imgRef = database().ref('assetimage');
+    imgRef.once('value').then((snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const keys = Object.keys(data);
-        
-        // Use all categories
-        const finalCats = keys;
-        
-        const uiCategories = finalCats.map((key, index) => {
-          const urls = Array.isArray(data[key]) ? data[key] : Object.values(data[key]);
-          return {
-            id: index,
-            name: key,
-            img: { uri: urls[0] } // First image as thumbnail
-          };
+        let allFeatured = [];
+        Object.keys(data).forEach(cat => {
+          if (cat === '_initialized') return;
+          const content = data[cat];
+          if (Array.isArray(content)) {
+            content.forEach((url, i) => {
+              if (typeof url === 'string') allFeatured.push({ id: `feat_${cat}_${i}`, img: { uri: url }, title: `${cat} Design` });
+            });
+          } else if (typeof content === 'object') {
+            Object.entries(content).forEach(([id, item]) => {
+              if (id === '_initialized') return;
+              if (typeof item === 'object' && item.image) {
+                allFeatured.push({ id, img: { uri: item.image }, title: item.name || `${cat} Design` });
+              } else if (typeof item === 'string') {
+                allFeatured.push({ id: `feat_${cat}_${id}`, img: { uri: item }, title: `${cat} Design` });
+              }
+            });
+          }
         });
-        setCategories(uiCategories);
-
-        // Pick 2 random items for featured
-        let allItems = [];
-        keys.forEach(k => {
-          const urls = Array.isArray(data[k]) ? data[k] : Object.values(data[k]);
-          urls.forEach(url => {
-            if(typeof url === 'string') allItems.push({ category: k, url });
-          });
-        });
-
-        allItems = allItems.sort(() => Math.random() - 0.5);
-        if (allItems.length >= 10) {
-          const tenItems = allItems.slice(0, 10).map((item, idx) => ({
-            id: `f${idx}`,
-            title: `${item.category} ${idx + 1}`,
-            img: { uri: item.url }
-          }));
-          setFeatured(tenItems);
-        }
+        setFeatured(allFeatured.sort(() => 0.5 - Math.random()).slice(0, 10));
       }
     });
 
-    // Listen to wishlist
-    const uid = auth.currentUser?.uid;
+    // Wishlist Listener
+    const uid = auth().currentUser?.uid;
+    let wishRef = null;
+    let unsubWish = null;
     if (uid) {
-      const wishRef = ref(database, `wishlist/${uid}`);
-      const unsubWish = onValue(wishRef, (snapshot) => {
-        if (snapshot.exists()) {
-          setWishlistIds(new Set(Object.keys(snapshot.val())));
-        } else {
-          setWishlistIds(new Set());
-        }
-      });
-      return () => {
-        unsubscribeRates();
-        unsubWish();
+      wishRef = database().ref(`wishlist/${uid}`);
+      unsubWish = (snapshot) => {
+        setWishlistIds(new Set(snapshot.exists() ? Object.keys(snapshot.val()) : []));
       };
+      wishRef.on('value', unsubWish);
     }
 
-    return () => unsubscribeRates();
+    // Auto-scroll Carousel
+    const carouselTimer = setInterval(() => {
+      setActiveBanner((prev) => {
+        const nextIndex = (prev + 1) % (banners.length || 1);
+        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        return nextIndex;
+      });
+    }, 4000);
+
+    return () => {
+      dbRef.off('value', onRatesChange);
+      if (wishRef && unsubWish) wishRef.off('value', unsubWish);
+      clearInterval(carouselTimer);
+    };
   }, []);
+
+  const renderBanner = ({ item }) => (
+    <ImageBackground source={item.img} style={styles.heroBanner} imageStyle={{ borderRadius: 10 }}>
+      <View style={styles.heroOverlay}>
+        <View style={styles.newCollectionBadge}>
+          <Text style={styles.newCollectionText}>NEW COLLECTION</Text>
+        </View>
+        <Text style={styles.heroTitle}>{item.title}</Text>
+        <Text style={styles.heroTitleHighlight}>{item.subtitle}</Text>
+        <TouchableOpacity style={styles.exploreBtn} onPress={() => navigation.navigate('SHOP')}>
+          <Text style={styles.exploreBtnText}>Explore Now</Text>
+        </TouchableOpacity>
+      </View>
+    </ImageBackground>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -124,45 +181,57 @@ export default function HomeScreen({ navigation }) {
       
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setMenuVisible(true)}><Ionicons name="menu" size={28} color="white" /></TouchableOpacity>
-        <Text style={styles.headerTitle}>OM ORNAMENTS</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={() => setMenuVisible(true)} style={styles.menuBtn}>
+          <Ionicons name="menu" size={28} color="white" />
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Image source={require('../../assets/logo_om.png')} style={styles.headerLogo} />
+          <Text style={styles.headerTitle}>OM ORNAMENTS</Text>
+        </View>
+
+        <TouchableOpacity onPress={() => navigation.navigate('SHOP')} style={styles.searchBtn}>
+          <Ionicons name="search" size={24} color="#F5B041" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Hero Banner */}
-        <ImageBackground source={require('../assets/image/har.jpg')} style={styles.heroBanner} imageStyle={{ borderRadius: 10 }}>
-          <View style={styles.heroOverlay}>
-            <View style={styles.newCollectionBadge}>
-              <Text style={styles.newCollectionText}>NEW COLLECTION</Text>
-            </View>
-            <Text style={styles.heroTitle}>Elevate Your</Text>
-            <Text style={styles.heroTitleHighlight}>Radiance</Text>
-            <TouchableOpacity style={styles.exploreBtn} onPress={() => navigation.navigate('SHOP')}>
-              <Text style={styles.exploreBtnText}>Explore New Arrivals</Text>
-            </TouchableOpacity>
+        {/* Carousel Banner */}
+        <View style={styles.carouselContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={banners}
+            renderItem={renderBanner}
+            keyExtractor={(item) => item.id}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              setActiveBanner(index);
+            }}
+          />
+          <View style={styles.pagination}>
+            {banners.map((_, i) => (
+              <View key={i} style={[styles.paginationDot, activeBanner === i && styles.paginationDotActive]} />
+            ))}
           </View>
-        </ImageBackground>
+        </View>
 
         {/* Live Market Rates */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>LIVE MARKET RATES</Text>
-          <View style={styles.liveIndicator}><View style={styles.liveDot} /><Text style={styles.liveText}>LIVE DATA</Text></View>
-        </View>
-        
         <View style={styles.ratesGrid}>
-          {/* Row 1 */}
-          <RateCard title="NUMBER RATE 99.99" price={`₹${rates.numberRate}`} change="" isUp={true} />
-          <RateCard title="BREAD RATE 99.50" price={`₹${rates.breadRate}`} change="" isUp={true} />
-          
-          {/* Row 2 */}
-          <RateCard title="RTGS RATE 99.50" price={`₹${rates.rtgsRate}`} change="" isUp={true} />
-          <RateCard title="SILVER BATIYA RATE 99.99" price={`₹${rates.silverBatiya}`} change="" isUp={false} />
+          <RateCard name="NUMBER RATE" rate="99.99" price={`₹${rates.numberRate}`} unit="/10g" change="" isUp={true} />
+          <RateCard name="BREAD RATE" rate="99.50" price={`₹${rates.breadRate}`} unit="/10g" change="" isUp={true} />
+          <RateCard name="RTGS RATE" rate="99.50" price={`₹${rates.rtgsRate}`} unit="/10g" change="" isUp={true} />
+          <RateCard name="SILVER BATIYA" rate="99.99" price={`₹${rates.silverBatiya}`} unit="/kg" change="" isUp={false} />
 
-          {/* Row 3 */}
-          <RateCard title="LIVE GOLD (24K)" price={`₹${rates.goldApi}`} change="Live" isUp={true} />
-          <RateCard title="LIVE SILVER" price={`₹${rates.silverApi}`} change="Live" isUp={true} />
+          <View style={styles.miniHeadingContainer}>
+            <Text style={styles.miniHeading}>LIVE MARKET RATES</Text>
+          </View>
+
+          <RateCard name="LIVE GOLD" rate="(24K)" price={`₹${rates.goldApi}`} unit="/10g" change="Live" isUp={true} />
+          <RateCard name="LIVE SILVER" rate="" price={`₹${rates.silverApi}`} unit="/10g" change="Live" isUp={true} />
         </View>
 
         {/* Shop by Category */}
@@ -203,42 +272,11 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const viewItem = async (item) => {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
-  try {
-    await set(ref(database, `recentViews/${uid}/${item.id}`), {
-      ...item,
-      viewedAt: Date.now()
-    });
-  } catch (e) {
-    console.log('Error tracking recent view:', e);
-  }
-};
-
-const toggleLike = async (item, isLiked) => {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return;
-  
-  const itemRef = ref(database, `wishlist/${uid}/${item.id}`);
-  try {
-    if (isLiked) {
-      await remove(itemRef);
-    } else {
-      await set(itemRef, {
-        ...item,
-        savedAt: Date.now()
-      });
-    }
-  } catch (error) {
-    console.log('Error toggling wishlist:', error);
-  }
-};
-
-const RateCard = ({ title, price, change, isUp }) => (
+const RateCard = ({ name, rate, price, unit, change, isUp }) => (
   <View style={styles.rateCard}>
-    <Text style={styles.rateTitle}>{title}</Text>
-    <Text style={styles.ratePrice}>{price} <Text style={{fontSize: 12, color: '#9C9281'}}>/g</Text></Text>
+    <Text style={styles.rateTitle}>{name}</Text>
+    <Text style={styles.rateSubtitle}>{rate}</Text>
+    <Text style={styles.ratePrice}>{price} <Text style={{fontSize: 10, color: '#9C9281'}}>{unit}</Text></Text>
     <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 5}}>
       <Ionicons name={isUp ? 'trending-up' : 'trending-down'} size={14} color={isUp ? '#22C55E' : '#EF4444'} />
       <Text style={[styles.rateChange, { color: isUp ? '#22C55E' : '#EF4444' }]}> {change}</Text>
@@ -252,10 +290,7 @@ const FeaturedCard = ({ title, img, onPress, isLiked, onLike }) => (
       <TouchableOpacity onPress={onPress} style={{ width: '100%', height: '100%' }}>
         <Image source={img} style={styles.featuredImg} />
       </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.heartBtn, isLiked && { backgroundColor: '#F5B041' }]} 
-        onPress={onLike}
-      >
+      <TouchableOpacity style={[styles.heartBtn, isLiked && { backgroundColor: '#F5B041' }]} onPress={onLike}>
         <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color={isLiked ? "black" : "white"} />
       </TouchableOpacity>
     </View>
@@ -263,44 +298,71 @@ const FeaturedCard = ({ title, img, onPress, isLiked, onLike }) => (
   </View>
 );
 
+const viewItem = async (item) => {
+  const uid = auth().currentUser?.uid;
+  if (!uid) return;
+  try {
+    await database().ref(`recentViews/${uid}/${item.id}`).set({ ...item, viewedAt: Date.now() });
+  } catch (e) { console.log('Error tracking view:', e); }
+};
+
+const toggleLike = async (item, isLiked) => {
+  const uid = auth().currentUser?.uid;
+  if (!uid) return;
+  const itemRef = database().ref(`wishlist/${uid}/${item.id}`);
+  try {
+    if (isLiked) await itemRef.remove();
+    else await itemRef.set({ ...item, savedAt: Date.now() });
+  } catch (error) { console.log('Error wishlist:', error); }
+};
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#110F0A' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, height: 60 },
-  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 2 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 30 },
+  header: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20, height: 60, borderBottomWidth: 1, borderBottomColor: '#1F1A12' },
+  menuBtn: { position: 'absolute', left: 20 },
+  searchBtn: { position: 'absolute', right: 20 },
+  headerCenter: { flexDirection: 'row', alignItems: 'center' },
+  headerLogo: { width: 42, height: 42, marginRight: 8, resizeMode: 'contain' },
+  headerTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
+  scrollContent: { paddingBottom: 30 },
   
-  heroBanner: { width: '100%', height: 400, marginTop: 10, justifyContent: 'flex-end' },
+  carouselContainer: { width: width, height: 400, marginTop: 10 },
+  heroBanner: { width: width - 40, height: 380, marginHorizontal: 20, justifyContent: 'flex-end', overflow: 'hidden' },
   heroOverlay: { padding: 20, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 10 },
   newCollectionBadge: { backgroundColor: '#F5B041', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5, alignSelf: 'flex-start', marginBottom: 10 },
   newCollectionText: { fontSize: 10, fontWeight: 'bold', color: 'black' },
-  heroTitle: { fontSize: 28, color: 'white', fontWeight: '300' },
-  heroTitleHighlight: { fontSize: 32, color: '#F5B041', fontWeight: 'bold', marginBottom: 15 },
-  exploreBtn: { borderWidth: 1, borderColor: '#F5B041', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(31, 26, 18, 0.8)' },
-  exploreBtnText: { color: 'white', fontWeight: 'bold' },
+  heroTitle: { fontSize: 24, color: 'white', fontWeight: 'bold' },
+  heroTitleHighlight: { fontSize: 20, color: '#F5B041', fontWeight: '300', marginBottom: 15 },
+  exploreBtn: { borderWidth: 1, borderColor: '#F5B041', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(31, 26, 18, 0.8)' },
+  exploreBtnText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
 
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 15 },
+  pagination: { flexDirection: 'row', position: 'absolute', bottom: 20, alignSelf: 'center' },
+  paginationDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.4)', marginHorizontal: 4 },
+  paginationDotActive: { backgroundColor: '#F5B041', width: 12 },
+
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, marginBottom: 15, paddingHorizontal: 20 },
   sectionTitle: { color: 'white', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
-  liveIndicator: { flexDirection: 'row', alignItems: 'center' },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginRight: 5 },
-  liveText: { color: '#9C9281', fontSize: 10 },
   viewAllText: { color: '#F5B041', fontSize: 12, fontWeight: 'bold' },
 
-  ratesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  ratesGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 20, paddingHorizontal: 20 },
   rateCard: { width: '48%', backgroundColor: '#1F1A12', borderRadius: 8, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#332A1D' },
-  rateTitle: { color: '#9C9281', fontSize: 10, marginBottom: 5 },
-  ratePrice: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-  rateChange: { fontSize: 12, marginLeft: 2 },
+  rateTitle: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  rateSubtitle: { color: '#9C9281', fontSize: 10, marginBottom: 5 },
+  ratePrice: { color: '#F5B041', fontSize: 18, fontWeight: 'bold' },
+  rateChange: { fontSize: 10, marginLeft: 2 },
 
-  categoryScroll: { marginLeft: -5 },
-  categoryItem: { alignItems: 'center', marginHorizontal: 10 },
-  categoryImage: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#332A1D', marginBottom: 10 },
-  categoryName: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+  miniHeadingContainer: { width: '100%', marginTop: 5, marginBottom: 15 },
+  miniHeading: { color: '#F5B041', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
 
-  featuredGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  categoryScroll: { paddingLeft: 20 },
+  categoryItem: { alignItems: 'center', marginRight: 20 },
+  categoryImage: { width: 60, height: 60, borderRadius: 30, borderWidth: 1, borderColor: '#332A1D', marginBottom: 10 },
+  categoryName: { color: 'white', fontSize: 9, fontWeight: 'bold' },
+
+  featuredGrid: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
   featuredCard: { width: '48%' },
-  featuredImgContainer: { width: '100%', height: 200, backgroundColor: '#1F1A12', borderRadius: 10, overflow: 'hidden', marginBottom: 10 },
+  featuredImgContainer: { width: '100%', height: 180, backgroundColor: '#1F1A12', borderRadius: 10, overflow: 'hidden', marginBottom: 10 },
   featuredImg: { width: '100%', height: '100%', resizeMode: 'cover' },
   heartBtn: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', padding: 6, borderRadius: 20 },
   featuredTitle: { color: 'white', fontSize: 12, marginBottom: 5 },
-  featuredPrice: { color: '#F5B041', fontSize: 14, fontWeight: 'bold' },
 });

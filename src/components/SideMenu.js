@@ -1,15 +1,14 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { auth } from '../config/firebase';
-import { signOut } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SideMenu({ visible, onClose, navigation }) {
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await auth().signOut();
       onClose();
     } catch (e) {
       console.log('Error logging out', e);
@@ -19,6 +18,21 @@ export default function SideMenu({ visible, onClose, navigation }) {
   const navigateTo = (screen) => {
     onClose();
     navigation.navigate(screen);
+  };
+
+  const handleSupport = () => {
+    const phoneNumber = '9532565971';
+    const message = "Hello Multiqo Team! 👋 I am using the Om Ornaments mobile app and would like some support regarding my experience. Looking forward to connecting with you! ✨";
+    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+    
+    Linking.canOpenURL(url).then(supported => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        const webUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
+        Linking.openURL(webUrl);
+      }
+    });
   };
 
   return (
@@ -49,9 +63,19 @@ export default function SideMenu({ visible, onClose, navigation }) {
               <Text style={styles.linkText}>Wishlist</Text>
             </TouchableOpacity>
 
+            <TouchableOpacity style={styles.linkBtn} onPress={() => navigateTo('Contact')}>
+              <Ionicons name="help-buoy-outline" size={20} color="#F5B041" style={styles.icon} />
+              <Text style={styles.linkText}>Contact Us</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.linkBtn} onPress={() => navigateTo('ACCOUNT')}>
               <Ionicons name="person-outline" size={20} color="#F5B041" style={styles.icon} />
               <Text style={styles.linkText}>Account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.linkBtn, { borderBottomWidth: 0 }]} onPress={handleSupport}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#F5B041" style={styles.icon} />
+              <Text style={styles.linkText}>Support with Multiqo</Text>
             </TouchableOpacity>
           </View>
           
@@ -59,6 +83,11 @@ export default function SideMenu({ visible, onClose, navigation }) {
             <Ionicons name="log-out-outline" size={20} color="#EF4444" style={styles.icon} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Designed and developed by</Text>
+            <Text style={styles.footerBrand}>Multiqo</Text>
+          </View>
         </View>
       </View>
     </Modal>
@@ -76,5 +105,8 @@ const styles = StyleSheet.create({
   icon: { marginRight: 15 },
   linkText: { color: 'white', fontSize: 16 },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, borderTopWidth: 1, borderColor: '#332A1D', marginBottom: 20 },
-  logoutText: { color: '#EF4444', fontSize: 16, fontWeight: 'bold' }
+  logoutText: { color: '#EF4444', fontSize: 16, fontWeight: 'bold' },
+  footer: { alignItems: 'center', marginBottom: 20 },
+  footerText: { color: '#9C9281', fontSize: 10, fontWeight: '300' },
+  footerBrand: { color: '#F5B041', fontSize: 12, fontWeight: 'bold', marginTop: 2 }
 });

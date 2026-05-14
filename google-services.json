@@ -59,11 +59,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "407760094478-dltqjijuv77d9bjtr9olf7ijmpj6cb3t.apps.googleusercontent.com",
+          "client_id": "407760094478-8dqfnhvm2r7fq9qmvqscqf9068805mnf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.omornament.app",
-            "certificate_hash": "e75aa7559e36d5e6fd079be0a24b41cdfea00b57"
+            "certificate_hash": "7a05d70a93ee1c5f7139b16934e333687bf657b4"
           }
         },
         {

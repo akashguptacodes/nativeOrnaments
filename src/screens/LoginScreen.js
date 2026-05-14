@@ -1,162 +1,214 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-// Configure Google Sign-In with the Web Client ID
-// The Web Client ID is used to get the idToken for Firebase auth
 GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '407760094478-eem62shnhd4ctg7hdjhhs2b8krrp29r6.apps.googleusercontent.com',
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
 });
 
 export default function LoginScreen({ navigation }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [obscureText, setObscureText] = useState(true);
+  const [step, setStep] = useState(1);
+  const [phone, setPhone] = useState('+91');
+  const [otp, setOtp] = useState('');
+  const [confirmation, setConfirmation] = useState(null);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isGoogleNewUser, setIsGoogleNewUser] = useState(false);
+
+  // 🔄 Unified Sync Logic
+  const syncUserData = async (user, identifierType, identifierValue) => {
+    try {
+      const userRef = database().ref('Users/' + user.uid);
+      const snapshot = await userRef.once('value');
+
+      // 1. If profile data already exists for this UID
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Ensure role exists
+        if (!data.role) await userRef.update({ role: 'user' });
+        return true; 
+      }
+
+      // 2. Search for existing records by identifier (Email or Contact)
+      const existingSnapshot = await database()
+        .ref('Users')
+        .orderByChild(identifierType)
+        .equalTo(identifierValue)
+        .once('value');
+
+      if (existingSnapshot.exists()) {
+        const data = existingSnapshot.val();
+        const existingUid = Object.keys(data)[0];
+        const userData = data[existingUid];
+
+        if (existingUid !== user.uid) {
+          // Migrate Data
+          await userRef.set({
+            ...userData,
+            role: userData.role || 'user',
+            lastLogin: Date.now(),
+            provider: user.providerData[0]?.providerId || 'google'
+          });
+
+          // Migrate Wishlist/Recent
+          const wishSnapshot = await database().ref('wishlist/' + existingUid).once('value');
+          if (wishSnapshot.exists()) await database().ref('wishlist/' + user.uid).update(wishSnapshot.val());
+          
+          const recentSnapshot = await database().ref('recentViews/' + existingUid).once('value');
+          if (recentSnapshot.exists()) await database().ref('recentViews/' + user.uid).update(recentSnapshot.val());
+        }
+        return true; 
+      }
+      
+      return false; 
+    } catch (err) {
+      console.error('Data Sync Error:', err);
+      return false;
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     setErrorMessage('');
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.hasPlayServices();
       const userInfo = await GoogleSignin.signIn();
-      // Get the id token to create a Firebase credential
       const idToken = userInfo.data?.idToken || userInfo.idToken;
-      if (!idToken) {
-        throw new Error('Failed to get ID token from Google');
-      }
-      const credential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(auth, credential);
-      const user = userCredential.user;
+      const credential = auth.GoogleAuthProvider.credential(idToken);
+      const userCredential = await auth().signInWithCredential(credential);
       
-      const { ref, get, set } = require('firebase/database');
-      const { database } = require('../config/firebase');
-      const userRef = ref(database, 'Users/' + user.uid);
-      const snapshot = await get(userRef);
-      if (!snapshot.exists()) {
-        await set(userRef, {
-          'Firm Name': user.displayName || 'Google User',
-          'Address': '',
-          'Contact': '',
-          'Email': user.email || '',
-          'createdAt': Date.now()
-        });
+      // Check if user exists
+      const exists = await syncUserData(userCredential.user, 'Email', userCredential.user.email);
+      
+      if (!exists) {
+        // New Google user: Ask for phone verification first
+        setIsGoogleNewUser(true);
+        setStep(1); // Ensure we are on phone input step
+        Alert.alert("One More Step", "To complete your registration, please verify your phone number.");
       }
     } catch (error) {
-      console.log('Google Sign-In Error:', error);
-      if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User cancelled — do nothing
-      } else if (error.code === statusCodes.IN_PROGRESS) {
-        setErrorMessage('Sign in already in progress.');
-      } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        setErrorMessage('Google Play Services not available.');
-      } else {
-        setErrorMessage(error.message || 'Google sign-in failed. Please try again.');
+      if (error.code !== statusCodes.SIGN_IN_CANCELLED) {
+        setErrorMessage(error.message || 'Google sign-in failed.');
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setErrorMessage('Email and Password are required');
+  const handleSendOTP = async () => {
+    if (phone.length < 10) {
+      setErrorMessage('Please enter a valid phone number.');
       return;
     }
     setIsLoading(true);
-    setErrorMessage('');
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password.trim());
-      await AsyncStorage.setItem('userEmail', email.trim());
+      const confirm = await auth().signInWithPhoneNumber(phone);
+      setConfirmation(confirm);
+      setStep(2);
     } catch (error) {
-      setErrorMessage(getErrorMessage(error.code));
+      setErrorMessage(error.message || 'Failed to send OTP.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getErrorMessage = (errorCode) => {
-    switch (errorCode) {
-      case 'auth/user-not-found':
-        return 'No user found with this email.';
-      case 'auth/wrong-password':
-        return 'Incorrect password. Try again.';
-      case 'auth/invalid-email':
-        return 'Invalid email format.';
-      case 'auth/user-disabled':
-        return 'This user account has been disabled.';
-      default:
-        return 'An error occurred. Please try again.';
+  const handleVerifyOTP = async () => {
+    if (otp.length < 6) {
+      setErrorMessage('Please enter 6-digit OTP.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      if (isGoogleNewUser) {
+        // Link Phone to existing Google Session or just sync data
+        const user = auth().currentUser;
+        // Verify the phone via confirmation
+        const credential = auth.PhoneAuthProvider.credential(confirmation.verificationId, otp);
+        await user.linkWithCredential(credential);
+        
+        // Now check if a profile exists for this phone number
+        await syncUserData(user, 'Contact', phone);
+      } else {
+        const userCredential = await confirmation.confirm(otp);
+        await syncUserData(userCredential.user, 'Contact', phone);
+      }
+      await AsyncStorage.setItem('userPhone', phone);
+    } catch (error) {
+      setErrorMessage(error.message || 'Verification failed.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.subtitle}>Welcome Back</Text>
-          <Text style={styles.title}>OM ORNAMENTS</Text>
-          
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#9C9281" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email address"
-              placeholderTextColor="#9C9281"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-          
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#9C9281" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#9C9281"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={obscureText}
-            />
-            <TouchableOpacity onPress={() => setObscureText(!obscureText)} style={styles.eyeButton}>
-              <Ionicons name={obscureText ? "eye-off-outline" : "eye-outline"} size={20} color="#9C9281" />
-            </TouchableOpacity>
-          </View>
-
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-          <TouchableOpacity style={styles.forgotBtn} onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          {isLoading ? (
-            <ActivityIndicator size="large" color="#F5B041" style={{ marginVertical: 20 }} />
-          ) : (
-            <>
-              <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                <Text style={styles.buttonText}>LOGIN</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn}>
-                <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.linkText}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.header}>
+          <Image source={require('../../assets/logo_om.png')} style={styles.logo} />
+          <Text style={styles.title}>{isGoogleNewUser ? 'Verify Phone' : 'Welcome to'}</Text>
+          <Text style={styles.brandTitle}>OM ORNAMENTS</Text>
         </View>
+
+        {step === 1 ? (
+          <View style={styles.form}>
+            <Text style={styles.label}>Enter your phone number</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="call-outline" size={20} color="#9C9281" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="+91..."
+                placeholderTextColor="#9C9281"
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
+            </View>
+
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+            <TouchableOpacity style={styles.loginBtn} onPress={handleSendOTP} disabled={isLoading}>
+              {isLoading ? <ActivityIndicator color="black" /> : <Text style={styles.loginBtnText}>SEND OTP</Text>}
+            </TouchableOpacity>
+
+            {!isGoogleNewUser && (
+              <>
+                <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>OR</Text><View style={styles.dividerLine} /></View>
+                <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignIn} disabled={isLoading}>
+                  <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 10 }} />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : (
+          <View style={styles.form}>
+            <Text style={styles.infoText}>OTP sent to {phone}</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color="#9C9281" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter 6-digit OTP"
+                placeholderTextColor="#9C9281"
+                keyboardType="number-pad"
+                maxLength={6}
+                value={otp}
+                onChangeText={setOtp}
+              />
+            </View>
+            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            <TouchableOpacity style={styles.loginBtn} onPress={handleVerifyOTP} disabled={isLoading}>
+              {isLoading ? <ActivityIndicator color="black" /> : <Text style={styles.loginBtnText}>VERIFY & PROCEED</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setStep(1)} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>Change Phone Number</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -164,63 +216,25 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#110F0A' },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 25 },
-  card: {
-    width: '100%',
-    maxWidth: 400,
-    padding: 20,
-    alignItems: 'center',
-  },
-  subtitle: { color: '#9C9281', fontSize: 14, letterSpacing: 2, marginBottom: 5 },
-  title: { fontSize: 32, fontWeight: 'bold', color: 'white', letterSpacing: 4, marginBottom: 40 },
-  
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#1F1A12',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#332A1D',
-    marginBottom: 15,
-  },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 25, alignItems: 'center' },
+  header: { marginBottom: 30, width: '100%', alignItems: 'center' },
+  logo: { width: 120, height: 120, resizeMode: 'contain', marginBottom: 10 },
+  title: { color: 'white', fontSize: 24, fontWeight: '300' },
+  brandTitle: { color: '#F5B041', fontSize: 36, fontWeight: 'bold', letterSpacing: 2 },
+  form: { width: '100%', alignItems: 'center' },
+  label: { color: '#9C9281', alignSelf: 'flex-start', marginBottom: 10, fontSize: 14 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F1A12', borderRadius: 8, marginBottom: 15, width: '100%', borderWidth: 1, borderColor: '#332A1D' },
   inputIcon: { paddingHorizontal: 15 },
-  input: {
-    flex: 1,
-    paddingVertical: 15,
-    color: 'white',
-    fontSize: 16,
-  },
-  eyeButton: { padding: 15 },
-  
-  forgotBtn: { alignSelf: 'flex-end', marginBottom: 30 },
-  forgotText: { color: '#F5B041', fontSize: 12, fontWeight: 'bold' },
-  
+  input: { flex: 1, paddingVertical: 15, color: 'white', fontSize: 14 },
   errorText: { color: '#EF4444', fontSize: 12, marginBottom: 15, textAlign: 'center' },
-  
-  button: {
-    backgroundColor: '#F5B041',
-    paddingVertical: 15,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  buttonText: { fontWeight: 'bold', color: 'black', fontSize: 14, letterSpacing: 1 },
-
-  googleBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#EA4335',
-    paddingVertical: 15,
-    borderRadius: 8,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  googleBtnText: { fontWeight: 'bold', color: 'white', fontSize: 14, letterSpacing: 1 },
-  
-  footerRow: { flexDirection: 'row', alignItems: 'center' },
-  footerText: { color: '#9C9281', fontSize: 14 },
-  linkText: { color: '#F5B041', fontSize: 14, fontWeight: 'bold' },
+  loginBtn: { backgroundColor: '#F5B041', paddingVertical: 15, borderRadius: 8, width: '100%', alignItems: 'center', marginTop: 10 },
+  loginBtnText: { color: 'black', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
+  divider: { flexDirection: 'row', alignItems: 'center', width: '100%', marginVertical: 30 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#332A1D' },
+  dividerText: { color: '#9C9281', paddingHorizontal: 10, fontSize: 12 },
+  googleBtn: { flexDirection: 'row', backgroundColor: '#EA4335', paddingVertical: 15, borderRadius: 8, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  googleBtnText: { color: 'white', fontSize: 14, fontWeight: 'bold', letterSpacing: 1 },
+  infoText: { color: '#9C9281', fontSize: 14, textAlign: 'center', marginBottom: 20 },
+  backBtn: { marginTop: 20, alignSelf: 'center' },
+  backBtnText: { color: '#9C9281', fontSize: 14, textDecorationLine: 'underline' }
 });

@@ -1,86 +1,85 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function GstScreen({ navigation }) {
   const [amount, setAmount] = useState('');
-  const [customGst, setCustomGst] = useState('');
-  const [gstPercentage, setGstPercentage] = useState(18);
+  const [gstRate, setGstRate] = useState('3'); // Default 3% for jewelry
+  const [result, setResult] = useState(null);
 
-  const calculateResults = () => {
-    const amt = parseFloat(amount) || 0;
-    const rate = customGst !== '' ? parseFloat(customGst) || gstPercentage : gstPercentage;
-    const gstAmt = (amt * rate) / 100;
-    const totalAmt = amt + gstAmt;
-    return { gstAmt, totalAmt };
+  const calculateGst = () => {
+    const amt = parseFloat(amount);
+    const rate = parseFloat(gstRate);
+    if (isNaN(amt) || isNaN(rate)) return;
+
+    const gstAmount = (amt * rate) / 100;
+    const totalAmount = amt + gstAmount;
+
+    setResult({
+      original: amt.toFixed(2),
+      gst: gstAmount.toFixed(2),
+      total: totalAmount.toFixed(2)
+    });
   };
 
-  const { gstAmt, totalAmt } = calculateResults();
-
-  const rates = [5, 12, 18, 28];
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#272626' }}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={{color: 'white', fontSize: 24}}>←</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>GST Calculator</Text>
+        <Text style={styles.headerTitle}>GST CALCULATOR</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <ImageBackground source={require('../assets/image/background.png')} style={styles.background}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          
           <View style={styles.card}>
-            <Text style={styles.title}>Enter Amount</Text>
+            <Text style={styles.label}>NET AMOUNT (₹)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Amount"
-              placeholderTextColor="gray"
+              placeholder="Enter Amount"
+              placeholderTextColor="#9C9281"
               keyboardType="numeric"
               value={amount}
               onChangeText={setAmount}
             />
-          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.title}>Select GST Rate</Text>
-            <View style={styles.chipsContainer}>
-              {rates.map((rate) => (
-                <TouchableOpacity
-                  key={rate}
-                  style={[styles.chip, gstPercentage === rate && customGst === '' ? styles.chipSelected : null]}
-                  onPress={() => {
-                    setGstPercentage(rate);
-                    setCustomGst('');
-                  }}
+            <Text style={styles.label}>GST RATE (%)</Text>
+            <View style={styles.rateRow}>
+              {['3', '5', '12', '18'].map(rate => (
+                <TouchableOpacity 
+                  key={rate} 
+                  style={[styles.rateBtn, gstRate === rate && styles.rateBtnActive]}
+                  onPress={() => setGstRate(rate)}
                 >
-                  <Text style={[styles.chipText, gstPercentage === rate && customGst === '' ? styles.chipTextSelected : null]}>
-                    {rate}%
-                  </Text>
+                  <Text style={[styles.rateBtnText, gstRate === rate && styles.rateBtnTextActive]}>{rate}%</Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
 
-          <View style={styles.card}>
-            <Text style={styles.title}>Custom GST (%)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter Custom GST"
-              placeholderTextColor="gray"
-              keyboardType="numeric"
-              value={customGst}
-              onChangeText={setCustomGst}
-            />
-          </View>
+            <TouchableOpacity style={styles.calcBtn} onPress={calculateGst}>
+              <Text style={styles.calcBtnText}>CALCULATE</Text>
+            </TouchableOpacity>
 
-          <View style={styles.card}>
-            <Text style={styles.title}>Calculation Result</Text>
-            <Text style={styles.resultText}>GST Amount: ₹{gstAmt.toFixed(2)}</Text>
-            <Text style={styles.totalText}>Total Amount: ₹{totalAmt.toFixed(2)}</Text>
+            {result && (
+              <View style={styles.resultContainer}>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>Base Amount:</Text>
+                  <Text style={styles.resultValue}>₹{result.original}</Text>
+                </View>
+                <View style={styles.resultRow}>
+                  <Text style={styles.resultLabel}>GST ({gstRate}%):</Text>
+                  <Text style={styles.resultValue}>+ ₹{result.gst}</Text>
+                </View>
+                <View style={[styles.resultRow, styles.totalRow]}>
+                  <Text style={styles.totalLabel}>Total Amount:</Text>
+                  <Text style={styles.totalValue}>₹{result.total}</Text>
+                </View>
+              </View>
+            )}
           </View>
-
         </ScrollView>
       </ImageBackground>
     </SafeAreaView>
@@ -88,42 +87,26 @@ export default function GstScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { height: 60, backgroundColor: 'black', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15 },
-  backBtn: { marginRight: 15, padding: 5 },
-  headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#110F0A' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, height: 60, backgroundColor: '#110F0A' },
+  headerTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
   background: { flex: 1, resizeMode: 'cover' },
-  scrollContent: { padding: 16 },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
-    elevation: 5,
-    shadowColor: 'black',
-    shadowOpacity: 0.5,
-    shadowOffset: { width: 5, height: 5 },
-  },
-  title: { fontWeight: 'bold', fontSize: 20, marginBottom: 10 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
-    fontSize: 16,
-    color: 'black',
-  },
-  chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#eee',
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  chipSelected: { backgroundColor: '#2196F3', borderColor: '#2196F3' },
-  chipText: { fontSize: 16, color: 'black' },
-  chipTextSelected: { color: 'white' },
-  resultText: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-  totalText: { fontSize: 18, fontWeight: 'bold', color: 'green' },
+  scrollContent: { padding: 20, flexGrow: 1, justifyContent: 'center' },
+  card: { backgroundColor: 'rgba(31, 26, 18, 0.9)', padding: 25, borderRadius: 15, borderWidth: 1, borderColor: '#F5B041' },
+  label: { color: '#F5B041', fontSize: 12, fontWeight: 'bold', marginBottom: 10, letterSpacing: 1 },
+  input: { backgroundColor: '#110F0A', borderRadius: 8, padding: 15, color: 'white', fontSize: 18, marginBottom: 20, borderWidth: 1, borderColor: '#332A1D' },
+  rateRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
+  rateBtn: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 5, borderWidth: 1, borderColor: '#332A1D', width: '22%', alignItems: 'center' },
+  rateBtnActive: { backgroundColor: '#F5B041', borderColor: '#F5B041' },
+  rateBtnText: { color: '#9C9281', fontWeight: 'bold' },
+  rateBtnTextActive: { color: 'black' },
+  calcBtn: { backgroundColor: '#F5B041', paddingVertical: 15, borderRadius: 8, alignItems: 'center' },
+  calcBtnText: { color: 'black', fontWeight: 'bold', fontSize: 16, letterSpacing: 1 },
+  resultContainer: { marginTop: 30, borderTopWidth: 1, borderTopColor: '#332A1D', paddingTop: 20 },
+  resultRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  resultLabel: { color: '#9C9281', fontSize: 14 },
+  resultValue: { color: 'white', fontSize: 14, fontWeight: 'bold' },
+  totalRow: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#332A1D' },
+  totalLabel: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  totalValue: { color: '#F5B041', fontSize: 22, fontWeight: 'bold' },
 });

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ImageBackground, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 export default function ForgotPasswordScreen({ navigation }) {
@@ -20,7 +19,7 @@ export default function ForgotPasswordScreen({ navigation }) {
     setMessage('');
     
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      await auth().sendPasswordResetEmail(email.trim());
       setMessage('Password reset email sent!');
       setIsError(false);
     } catch (error) {
