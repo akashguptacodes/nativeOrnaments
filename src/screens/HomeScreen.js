@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ImageBackground, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, ImageBackground, FlatList, useWindowDimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
-
-const { width } = Dimensions.get('window');
 
 const BANNERS = [
   { id: '1', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1743499679/omornamentasset/Haar/ane0psszhxsolspgypba.jpg' }, title: 'Luxurious Haar', subtitle: 'Royal Collection' },
@@ -15,6 +13,11 @@ const BANNERS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  const { width: screenWidth } = useWindowDimensions();
+  // Cap the carousel width for better tablet support while maintaining 1:1 ratio
+  const carouselWidth = screenWidth > 600 ? 600 : screenWidth;
+  const bannerWidth = carouselWidth - 40;
+
   const [banners, setBanners] = useState(BANNERS);
   const [rates, setRates] = useState({ goldApi: '...', silverApi: '...', rtgsRate: '...', silverBatiya: '...', numberRate: '...', breadRate: '...' });
   const [categories, setCategories] = useState([]);
@@ -22,7 +25,35 @@ export default function HomeScreen({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [activeBanner, setActiveBanner] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef(null);
+
+  const fetchLiveRates = async () => {
+    const apiKey = process.env.EXPO_PUBLIC_GOLD_API_KEY;
+    if (!apiKey) return;
+    try {
+      const headers = { 'x-access-token': apiKey, 'Content-Type': 'application/json' };
+      const goldRes = await fetch('https://www.goldapi.io/api/XAU/INR', { headers });
+      const goldData = await goldRes.json();
+      const goldPerGram = goldData.price_gram_24k ? goldData.price_gram_24k.toFixed(2) : '...';
+
+      const silverRes = await fetch('https://www.goldapi.io/api/XAG/INR', { headers });
+      const silverData = await silverRes.json();
+      const silverPerGram = silverData.price_gram_24k ? silverData.price_gram_24k.toFixed(2) : '...';
+
+      setRates(prev => ({ ...prev, goldApi: goldPerGram, silverApi: silverPerGram }));
+    } catch (err) {
+      console.log("Error fetching live rates:", err);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchLiveRates();
+    // Re-triggering listeners isn't strictly necessary since they are real-time,
+    // but we can do it to ensure everything is perfectly in sync.
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   useEffect(() => {
     // Fetch Categories
@@ -56,15 +87,19 @@ export default function HomeScreen({ navigation }) {
     bannerRef.on('value', (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const bannerList = Array.isArray(data) ? data : Object.values(data);
+        const bannerList = (Array.isArray(data) ? data : Object.values(data)).filter(item => item && item.img);
         if (bannerList.length > 0) {
           setBanners(bannerList.map((item, i) => ({ 
-            id: `dyn_${i}`, 
+            id: item.id || item.createdAt?.toString() || item.img || `dyn_${i}`, 
             img: { uri: item.img }, 
             title: item.title || 'Latest Piece', 
             subtitle: item.subtitle || 'Exclusive Collection' 
           })));
+        } else {
+          setBanners(BANNERS);
         }
+      } else {
+        setBanners(BANNERS);
       }
     });
     // Fetch Rates
@@ -83,30 +118,11 @@ export default function HomeScreen({ navigation }) {
     };
     dbRef.on('value', onRatesChange);
 
-    // Fetch Live API Rates
-    const fetchLiveRates = async () => {
-      const apiKey = process.env.EXPO_PUBLIC_GOLD_API_KEY;
-      if (!apiKey) return;
-      try {
-        const headers = { 'x-access-token': apiKey, 'Content-Type': 'application/json' };
-        const goldRes = await fetch('https://www.goldapi.io/api/XAU/INR', { headers });
-        const goldData = await goldRes.json();
-        const goldPerGram = goldData.price_gram_24k ? goldData.price_gram_24k.toFixed(2) : '...';
-
-        const silverRes = await fetch('https://www.goldapi.io/api/XAG/INR', { headers });
-        const silverData = await silverRes.json();
-        const silverPerGram = silverData.price_gram_24k ? silverData.price_gram_24k.toFixed(2) : '...';
-
-        setRates(prev => ({ ...prev, goldApi: goldPerGram, silverApi: silverPerGram }));
-      } catch (err) {
-        console.log("Error fetching live rates:", err);
-      }
-    };
     fetchLiveRates();
 
     // Fetch Featured Items from assetimage
     const imgRef = database().ref('assetimage');
-    imgRef.once('value').then((snapshot) => {
+    const onFeaturedChange = (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         let allFeatured = [];
@@ -129,8 +145,11 @@ export default function HomeScreen({ navigation }) {
           }
         });
         setFeatured(allFeatured.sort(() => 0.5 - Math.random()).slice(0, 10));
+      } else {
+        setFeatured([]);
       }
-    });
+    };
+    imgRef.on('value', onFeaturedChange);
 
     // Wishlist Listener
     const uid = auth().currentUser?.uid;
@@ -144,30 +163,47 @@ export default function HomeScreen({ navigation }) {
       wishRef.on('value', unsubWish);
     }
 
-    // Auto-scroll Carousel
+    return () => {
+      catRef.off('value');
+      bannerRef.off('value');
+      dbRef.off('value', onRatesChange);
+      imgRef.off('value', onFeaturedChange);
+      if (wishRef && unsubWish) wishRef.off('value', unsubWish);
+    };
+  }, []);
+
+  // Auto-scroll Carousel - Separate effect to handle dynamic banners and avoid crashes
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
     const carouselTimer = setInterval(() => {
       setActiveBanner((prev) => {
-        const nextIndex = (prev + 1) % (banners.length || 1);
-        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        const nextIndex = (prev + 1) % banners.length;
+        try {
+          flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+        } catch (e) {
+          console.log("Carousel scroll error:", e);
+        }
         return nextIndex;
       });
     }, 4000);
 
-    return () => {
-      dbRef.off('value', onRatesChange);
-      if (wishRef && unsubWish) wishRef.off('value', unsubWish);
-      clearInterval(carouselTimer);
-    };
-  }, []);
+    return () => clearInterval(carouselTimer);
+  }, [banners]);
 
   const renderBanner = ({ item }) => (
-    <ImageBackground source={item.img} style={styles.heroBanner} imageStyle={{ borderRadius: 10 }}>
+    <ImageBackground 
+      source={item.img} 
+      style={[styles.heroBanner, { width: bannerWidth, height: bannerWidth, marginHorizontal: (screenWidth - bannerWidth) / 2 }]} 
+      imageStyle={{ borderRadius: 10 }}
+      resizeMode="cover"
+    >
       <View style={styles.heroOverlay}>
         <View style={styles.newCollectionBadge}>
           <Text style={styles.newCollectionText}>NEW COLLECTION</Text>
         </View>
-        <Text style={styles.heroTitle}>{item.title}</Text>
-        <Text style={styles.heroTitleHighlight}>{item.subtitle}</Text>
+        <Text style={[styles.heroTitle, { fontSize: carouselWidth * 0.065 }]}>{item.title}</Text>
+        <Text style={[styles.heroTitleHighlight, { fontSize: carouselWidth * 0.055 }]}>{item.subtitle}</Text>
         <TouchableOpacity style={styles.exploreBtn} onPress={() => navigation.navigate('SHOP')}>
           <Text style={styles.exploreBtnText}>Explore Now</Text>
         </TouchableOpacity>
@@ -195,20 +231,39 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#F5B041" 
+            colors={["#F5B041"]} 
+            backgroundColor="#110F0A"
+          />
+        }
+      >
         
         {/* Carousel Banner */}
-        <View style={styles.carouselContainer}>
+        <View style={[styles.carouselContainer, { width: screenWidth, height: bannerWidth + 20 }]}>
           <FlatList
+            key={banners.length}
             ref={flatListRef}
             data={banners}
             renderItem={renderBanner}
             keyExtractor={(item) => item.id}
+            extraData={banners}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
+            getItemLayout={(_, index) => ({
+              length: screenWidth,
+              offset: screenWidth * index,
+              index,
+            })}
             onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              const index = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
               setActiveBanner(index);
             }}
           />
@@ -326,13 +381,13 @@ const styles = StyleSheet.create({
   headerTitle: { color: 'white', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 },
   scrollContent: { paddingBottom: 30 },
   
-  carouselContainer: { width: width, height: 400, marginTop: 10 },
-  heroBanner: { width: width - 40, height: 380, marginHorizontal: 20, justifyContent: 'flex-end', overflow: 'hidden' },
+  carouselContainer: { marginTop: 10 },
+  heroBanner: { justifyContent: 'flex-end', overflow: 'hidden' },
   heroOverlay: { padding: 20, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 10 },
   newCollectionBadge: { backgroundColor: '#F5B041', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 5, alignSelf: 'flex-start', marginBottom: 10 },
   newCollectionText: { fontSize: 10, fontWeight: 'bold', color: 'black' },
-  heroTitle: { fontSize: 24, color: 'white', fontWeight: 'bold' },
-  heroTitleHighlight: { fontSize: 20, color: '#F5B041', fontWeight: '300', marginBottom: 15 },
+  heroTitle: { color: 'white', fontWeight: 'bold' },
+  heroTitleHighlight: { color: '#F5B041', fontWeight: '300', marginBottom: 15 },
   exploreBtn: { borderWidth: 1, borderColor: '#F5B041', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(31, 26, 18, 0.8)' },
   exploreBtnText: { color: 'white', fontWeight: 'bold', fontSize: 12 },
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, TextInput, Dimensions, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, TextInput, Dimensions, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database, auth } from '../config/firebase';
@@ -16,6 +16,13 @@ export default function ShopScreen({ route, navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
   const [wishlistIds, setWishlistIds] = useState(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Real-time listener will already be up to date, so we just simulate the UI feedback
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
   useEffect(() => {
     if (route?.params?.initialFilter) {
@@ -24,25 +31,10 @@ export default function ShopScreen({ route, navigation }) {
   }, [route?.params?.initialFilter]);
 
   useEffect(() => {
-    fetchData();
-    const uid = auth().currentUser?.uid;
-    if (uid) {
-      const wishRef = database().ref(`wishlist/${uid}`);
-      const unsub = (snapshot) => {
-        setWishlistIds(new Set(snapshot.exists() ? Object.keys(snapshot.val()) : []));
-      };
-      wishRef.on('value', unsub);
-      return () => wishRef.off('value', unsub);
-    }
-  }, []);
-
-  const fetchData = async () => {
     setIsLoading(true);
-    try {
-      // 🔄 Unified Fetch from 'assetimage'
-      const dbRef = database().ref('assetimage');
-      const snapshot = await dbRef.once('value');
-      
+    const dbRef = database().ref('assetimage');
+    
+    const onValueChange = (snapshot) => {
       let fetchedCategories = [];
       let fetchedItems = [];
 
@@ -100,12 +92,27 @@ export default function ShopScreen({ route, navigation }) {
       setFilters(fetchedCategories);
       if (!activeFilter && fetchedCategories.length > 0) setActiveFilter(fetchedCategories[0]);
       setAllItems(fetchedItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
-    } catch (error) {
-      console.log('Error fetching unified data:', error);
-    } finally {
       setIsLoading(false);
+    };
+
+    dbRef.on('value', onValueChange);
+
+    const uid = auth().currentUser?.uid;
+    let wishRef = null;
+    let unsubWish = null;
+    if (uid) {
+      wishRef = database().ref(`wishlist/${uid}`);
+      unsubWish = (snapshot) => {
+        setWishlistIds(new Set(snapshot.exists() ? Object.keys(snapshot.val()) : []));
+      };
+      wishRef.on('value', unsubWish);
     }
-  };
+
+    return () => {
+      dbRef.off('value', onValueChange);
+      if (wishRef && unsubWish) wishRef.off('value', unsubWish);
+    };
+  }, []);
 
   const filteredItems = allItems.filter(item => {
     const matchesTab = !activeFilter || item.category === activeFilter;
@@ -143,7 +150,19 @@ export default function ShopScreen({ route, navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor="#F5B041" 
+            colors={["#F5B041"]} 
+            backgroundColor="#110F0A"
+          />
+        }
+      >
         <View style={styles.searchRow}>
           <View style={styles.searchBar}>
             <Ionicons name="search" size={20} color="#9C9281" style={{ marginRight: 10 }} />

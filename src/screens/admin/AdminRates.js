@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database } from '../../config/firebase';
@@ -54,22 +54,27 @@ export default function AdminRates({ navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionDesc}>Update the live market rates shown on the home screen.</Text>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionDesc}>Update the live market rates shown on the home screen.</Text>
 
-        <RateInput label="NUMBER RATE (per 10g)" value={rates['नंबर Rate']} onChangeText={(v) => setRates({...rates, 'नंबर Rate': v})} />
-        <RateInput label="BREAD RATE (per 10g)" value={rates['ब्रेड Rate']} onChangeText={(v) => setRates({...rates, 'ब्रेड Rate': v})} />
-        <RateInput label="RTGS RATE (per 10g)" value={rates['RTGS Rate']} onChangeText={(v) => setRates({...rates, 'RTGS Rate': v})} />
-        <RateInput label="SILVER BATIYA (per kg)" value={rates['चांदी बटिया Rate']} onChangeText={(v) => setRates({...rates, 'चांदी बटिया Rate': v})} />
+          <RateInput label="NUMBER RATE (per 10g)" value={rates['नंबर Rate']} onChangeText={(v) => setRates({...rates, 'नंबर Rate': v})} />
+          <RateInput label="BREAD RATE (per 10g)" value={rates['ब्रेड Rate']} onChangeText={(v) => setRates({...rates, 'ब्रेड Rate': v})} />
+          <RateInput label="RTGS RATE (per 10g)" value={rates['RTGS Rate']} onChangeText={(v) => setRates({...rates, 'RTGS Rate': v})} />
+          <RateInput label="SILVER BATIYA (per kg)" value={rates['चांदी बटिया Rate']} onChangeText={(v) => setRates({...rates, 'चांदी बटिया Rate': v})} />
 
-        <TouchableOpacity 
-          style={styles.saveBtn} 
-          onPress={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>UPDATE RATES</Text>}
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity 
+            style={styles.saveBtn} 
+            onPress={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>UPDATE RATES</Text>}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

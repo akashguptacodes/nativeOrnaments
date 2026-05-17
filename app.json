@@ -2,7 +2,7 @@
   "expo": {
     "name": "Om Ornaments",
     "slug": "om-ornament",
-    "version": "1.0.7",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/app_icon.png",
     "userInterfaceStyle": "light",
@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.omornament.omOrnament",
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "adaptiveIcon": {
@@ -44,7 +44,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.omornament.om_ornament",
-      "versionCode": 9,
+      "versionCode": 12,
       "googleServicesFile": "./google-services.json",
       "edgeToEdgeEnabled": true
     },
@@ -53,8 +53,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "f78f8db5-b535-4bb2-b603-7f75df8f0abb"
+        "projectId": "c689476e-42ff-4e3d-869b-c8f0123d60a6"
       }
-    }
+    },
+    "owner": "akash_005"
   }
 }

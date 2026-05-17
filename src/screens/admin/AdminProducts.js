@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, Alert, Modal, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -85,49 +85,61 @@ export default function AdminProducts({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionTitle}>1. SELECT CATEGORY</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
-          {categories.map((cat) => (
-            <TouchableOpacity 
-              key={cat.id} 
-              style={[styles.catBtn, selectedCat?.id === cat.id && styles.catBtnActive]}
-              onPress={() => setSelectedCat(cat)}
-            >
-              <Text style={[styles.catBtnText, selectedCat?.id === cat.id && styles.catBtnTextActive]}>{cat.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionTitle}>1. SELECT CATEGORY</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}>
+            {categories.map((cat) => (
+              <TouchableOpacity 
+                key={cat.id} 
+                style={[styles.catBtn, selectedCat?.id === cat.id && styles.catBtnActive]}
+                onPress={() => setSelectedCat(cat)}
+              >
+                <Text style={[styles.catBtnText, selectedCat?.id === cat.id && styles.catBtnTextActive]}>{cat.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
-        <Text style={[styles.sectionTitle, { marginTop: 30 }]}>2. PRODUCT DETAILS</Text>
-        <View style={styles.formCard}>
-          <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-            {productImage ? <Image source={{ uri: productImage }} style={styles.pickedImage} /> : (
-              <View style={styles.pickerPlaceholder}><Ionicons name="camera" size={40} color="#332A1D" /><Text style={styles.pickerText}>Upload Image</Text></View>
-            )}
-          </TouchableOpacity>
-          <TextInput style={styles.input} placeholder="Product Name" placeholderTextColor="#9C9281" value={productName} onChangeText={setProductName} />
-          <View style={styles.weightRow}>
-            <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} placeholder="Weight" placeholderTextColor="#9C9281" keyboardType="numeric" value={productWeight} onChangeText={setProductWeight} />
-            <View style={styles.weightUnit}><Text style={styles.weightUnitText}>GRAMS</Text></View>
+          <Text style={[styles.sectionTitle, { marginTop: 30 }]}>2. PRODUCT DETAILS</Text>
+          <View style={styles.formCard}>
+            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+              {productImage ? <Image source={{ uri: productImage }} style={styles.pickedImage} /> : (
+                <View style={styles.pickerPlaceholder}><Ionicons name="camera" size={40} color="#332A1D" /><Text style={styles.pickerText}>Upload Image</Text></View>
+              )}
+            </TouchableOpacity>
+            <TextInput style={styles.input} placeholder="Product Name" placeholderTextColor="#9C9281" value={productName} onChangeText={setProductName} />
+            <View style={styles.weightRow}>
+              <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} placeholder="Weight" placeholderTextColor="#9C9281" keyboardType="numeric" value={productWeight} onChangeText={setProductWeight} />
+              <View style={styles.weightUnit}><Text style={styles.weightUnitText}>GRAMS</Text></View>
+            </View>
+            <TouchableOpacity style={[styles.submitBtn, isUploading && { opacity: 0.7 }]} onPress={handleAddProduct} disabled={isUploading}>
+              {isUploading ? <ActivityIndicator color="black" /> : <Text style={styles.submitBtnText}>ADD TO {selectedCat?.name || 'CATEGORY'}</Text>}
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={[styles.submitBtn, isUploading && { opacity: 0.7 }]} onPress={handleAddProduct} disabled={isUploading}>
-            {isUploading ? <ActivityIndicator color="black" /> : <Text style={styles.submitBtnText}>ADD TO {selectedCat?.name || 'CATEGORY'}</Text>}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={showAddCat} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>New Category</Text>
-            <TextInput style={styles.modalInput} placeholder="e.g. Bali" placeholderTextColor="#9C9281" value={newCatName} onChangeText={setNewCatName} autoFocus />
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#332A1D' }]} onPress={() => setShowAddCat(false)}><Text style={styles.modalBtnText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#F5B041' }]} onPress={handleAddCategory}><Text style={[styles.modalBtnText, { color: 'black' }]}>Add</Text></TouchableOpacity>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>New Category</Text>
+                <TextInput style={styles.modalInput} placeholder="e.g. Bali" placeholderTextColor="#9C9281" value={newCatName} onChangeText={setNewCatName} autoFocus />
+                <View style={styles.modalBtns}>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#332A1D' }]} onPress={() => setShowAddCat(false)}><Text style={styles.modalBtnText}>Cancel</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#F5B041' }]} onPress={handleAddCategory}><Text style={[styles.modalBtnText, { color: 'black' }]}>Add</Text></TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

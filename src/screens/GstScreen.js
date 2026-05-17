@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ImageBackground, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ImageBackground, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -34,53 +34,58 @@ export default function GstScreen({ navigation }) {
       </View>
 
       <ImageBackground source={require('../assets/image/background.png')} style={styles.background}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.card}>
-            <Text style={styles.label}>NET AMOUNT (₹)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter Amount"
-              placeholderTextColor="#9C9281"
-              keyboardType="numeric"
-              value={amount}
-              onChangeText={setAmount}
-            />
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.card}>
+              <Text style={styles.label}>NET AMOUNT (₹)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Amount"
+                placeholderTextColor="#9C9281"
+                keyboardType="numeric"
+                value={amount}
+                onChangeText={setAmount}
+              />
 
-            <Text style={styles.label}>GST RATE (%)</Text>
-            <View style={styles.rateRow}>
-              {['3', '5', '12', '18'].map(rate => (
-                <TouchableOpacity 
-                  key={rate} 
-                  style={[styles.rateBtn, gstRate === rate && styles.rateBtnActive]}
-                  onPress={() => setGstRate(rate)}
-                >
-                  <Text style={[styles.rateBtnText, gstRate === rate && styles.rateBtnTextActive]}>{rate}%</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity style={styles.calcBtn} onPress={calculateGst}>
-              <Text style={styles.calcBtnText}>CALCULATE</Text>
-            </TouchableOpacity>
-
-            {result && (
-              <View style={styles.resultContainer}>
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>Base Amount:</Text>
-                  <Text style={styles.resultValue}>₹{result.original}</Text>
-                </View>
-                <View style={styles.resultRow}>
-                  <Text style={styles.resultLabel}>GST ({gstRate}%):</Text>
-                  <Text style={styles.resultValue}>+ ₹{result.gst}</Text>
-                </View>
-                <View style={[styles.resultRow, styles.totalRow]}>
-                  <Text style={styles.totalLabel}>Total Amount:</Text>
-                  <Text style={styles.totalValue}>₹{result.total}</Text>
-                </View>
+              <Text style={styles.label}>GST RATE (%)</Text>
+              <View style={styles.rateRow}>
+                {['3', '5', '12', '18'].map(rate => (
+                  <TouchableOpacity 
+                    key={rate} 
+                    style={[styles.rateBtn, gstRate === rate && styles.rateBtnActive]}
+                    onPress={() => setGstRate(rate)}
+                  >
+                    <Text style={[styles.rateBtnText, gstRate === rate && styles.rateBtnTextActive]}>{rate}%</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
-          </View>
-        </ScrollView>
+
+              <TouchableOpacity style={styles.calcBtn} onPress={calculateGst}>
+                <Text style={styles.calcBtnText}>CALCULATE</Text>
+              </TouchableOpacity>
+
+              {result && (
+                <View style={styles.resultContainer}>
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>Base Amount:</Text>
+                    <Text style={styles.resultValue}>₹{result.original}</Text>
+                  </View>
+                  <View style={styles.resultRow}>
+                    <Text style={styles.resultLabel}>GST ({gstRate}%):</Text>
+                    <Text style={styles.resultValue}>+ ₹{result.gst}</Text>
+                  </View>
+                  <View style={[styles.resultRow, styles.totalRow]}>
+                    <Text style={styles.totalLabel}>Total Amount:</Text>
+                    <Text style={styles.totalValue}>₹{result.total}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </ImageBackground>
     </SafeAreaView>
   );

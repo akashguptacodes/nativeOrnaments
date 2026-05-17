@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database } from '../../config/firebase';
@@ -47,27 +47,32 @@ export default function AdminContact({ navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionHeader}>GENERAL CONTACT</Text>
-        <View style={styles.formCard}>
-          <AdminInput label="OFFICE ADDRESS" value={contact.address} onChangeText={(v) => setContact({...contact, address: v})} />
-          <AdminInput label="BUSINESS PHONE" value={contact.phone} onChangeText={(v) => setContact({...contact, phone: v})} />
-          <AdminInput label="BUSINESS EMAIL" value={contact.email} onChangeText={(v) => setContact({...contact, email: v})} />
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionHeader}>GENERAL CONTACT</Text>
+          <View style={styles.formCard}>
+            <AdminInput label="OFFICE ADDRESS" value={contact.address} onChangeText={(v) => setContact({...contact, address: v})} />
+            <AdminInput label="BUSINESS PHONE" value={contact.phone} onChangeText={(v) => setContact({...contact, phone: v})} />
+            <AdminInput label="BUSINESS EMAIL" value={contact.email} onChangeText={(v) => setContact({...contact, email: v})} />
+          </View>
 
-        <Text style={[styles.sectionHeader, { marginTop: 30 }]}>BANKING DETAILS</Text>
-        <View style={styles.formCard}>
-          <AdminInput label="ACCOUNT HOLDER NAME" value={contact.bank.accountName} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, accountName: v}})} />
-          <AdminInput label="ACCOUNT NUMBER" value={contact.bank.accountNumber} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, accountNumber: v}})} />
-          <AdminInput label="IFSC CODE" value={contact.bank.ifsc} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, ifsc: v}})} />
-          <AdminInput label="BANK NAME" value={contact.bank.bankName} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, bankName: v}})} />
-          <AdminInput label="BRANCH" value={contact.bank.branch} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, branch: v}})} />
-        </View>
+          <Text style={[styles.sectionHeader, { marginTop: 30 }]}>BANKING DETAILS</Text>
+          <View style={styles.formCard}>
+            <AdminInput label="ACCOUNT HOLDER NAME" value={contact.bank.accountName} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, accountName: v}})} />
+            <AdminInput label="ACCOUNT NUMBER" value={contact.bank.accountNumber} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, accountNumber: v}})} />
+            <AdminInput label="IFSC CODE" value={contact.bank.ifsc} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, ifsc: v}})} />
+            <AdminInput label="BANK NAME" value={contact.bank.bankName} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, bankName: v}})} />
+            <AdminInput label="BRANCH" value={contact.bank.branch} onChangeText={(v) => setContact({...contact, bank: {...contact.bank, branch: v}})} />
+          </View>
 
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
-          {isSaving ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>SAVE ALL DETAILS</Text>}
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isSaving}>
+            {isSaving ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>SAVE ALL DETAILS</Text>}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

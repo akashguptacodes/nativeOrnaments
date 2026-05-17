@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions, TextInput, Modal, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -23,7 +23,14 @@ export default function AdminCarousel({ navigation }) {
     dbRef.on('value', (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setBanners(Array.isArray(data) ? data : Object.values(data));
+        const bannerList = Array.isArray(data) ? data : Object.values(data);
+        // Ensure even legacy banners get an ID, but prefer the stored one
+        setBanners(bannerList.filter(b => b).map((item, i) => ({
+          ...item,
+          id: item.id || item.createdAt?.toString() || item.img || `legacy_${i}`
+        })));
+      } else {
+        setBanners([]);
       }
       setIsLoading(false);
     });
@@ -34,7 +41,7 @@ export default function AdminCarousel({ navigation }) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [16, 9],
+      aspect: [1, 1],
       quality: 0.8,
     });
     if (!result.canceled) setNewImage(result.assets[0].uri);
@@ -47,7 +54,9 @@ export default function AdminCarousel({ navigation }) {
     setIsUploading(true);
     try {
       const imageUrl = await uploadToCloudinary(newImage);
+      const timestamp = Date.now().toString();
       const newBannerObj = {
+        id: timestamp, // Permanent unique ID
         img: imageUrl,
         title: newTitle.trim(),
         subtitle: newSubtitle.trim(),
@@ -67,11 +76,11 @@ export default function AdminCarousel({ navigation }) {
     }
   };
 
-  const removeBanner = async (index) => {
+  const removeBanner = async (id) => {
     Alert.alert("Remove", "Delete this banner?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: async () => {
-        const updated = banners.filter((_, i) => i !== index);
+        const updated = banners.filter((b) => b.id !== id);
         await database().ref('data/carousel').set(updated);
       }}
     ]);
@@ -89,43 +98,73 @@ export default function AdminCarousel({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionDesc}>Manage your promotional banners and taglines.</Text>
-        {banners.map((item, index) => (
-          <View key={index} style={styles.bannerCard}>
-            <Image source={{ uri: item.img }} style={styles.bannerImage} />
-            <View style={styles.bannerInfo}>
-              <Text style={styles.bannerTitle}>{item.title}</Text>
-              <Text style={styles.bannerSub}>{item.subtitle}</Text>
-            </View>
-            <TouchableOpacity style={styles.removeBtn} onPress={() => removeBanner(index)}>
-              <Ionicons name="trash" size={20} color="white" />
-            </TouchableOpacity>
+        {banners.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="images-outline" size={50} color="#332A1D" />
+            <Text style={styles.emptyText}>No banners found. Add one above.</Text>
           </View>
-        ))}
+        ) : (
+          banners.map((item) => (
+            <View key={item.id} style={styles.bannerCard}>
+              <Image source={{ uri: item.img }} style={styles.bannerImage} />
+              <View style={styles.bannerInfo}>
+                <Text style={styles.bannerTitle}>{item.title}</Text>
+                <Text style={styles.bannerSub}>{item.subtitle}</Text>
+              </View>
+              <TouchableOpacity style={styles.removeBtn} onPress={() => removeBanner(item.id)}>
+                <Ionicons name="trash" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </ScrollView>
 
       {/* Add Banner Modal */}
       <Modal visible={showAddModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Banner</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}><Ionicons name="close" size={24} color="white" /></TouchableOpacity>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Add New Banner</Text>
+                  <TouchableOpacity onPress={() => setShowAddModal(false)}><Ionicons name="close" size={24} color="white" /></TouchableOpacity>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                  <TouchableOpacity style={styles.picker} onPress={pickImage}>
+                    {newImage ? <Image source={{ uri: newImage }} style={styles.pickedImg} /> : (
+                      <View style={{ alignItems: 'center' }}><Ionicons name="camera" size={40} color="#332A1D" /><Text style={styles.pickerText}>Select Banner Image (1:1)</Text></View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Main Title (e.g. Luxurious Haar)" 
+                    placeholderTextColor="#9C9281" 
+                    value={newTitle} 
+                    onChangeText={setNewTitle} 
+                  />
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Subtitle (e.g. Royal Collection)" 
+                    placeholderTextColor="#9C9281" 
+                    value={newSubtitle} 
+                    onChangeText={setNewSubtitle} 
+                  />
+
+                  <TouchableOpacity style={styles.saveBtn} onPress={handleSaveBanner} disabled={isUploading}>
+                    {isUploading ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>UPLOAD BANNER</Text>}
+                  </TouchableOpacity>
+                  {/* Extra space at bottom to ensure inputs can be scrolled up */}
+                  <View style={{ height: 20 }} />
+                </ScrollView>
+              </View>
             </View>
-
-            <TouchableOpacity style={styles.picker} onPress={pickImage}>
-              {newImage ? <Image source={{ uri: newImage }} style={styles.pickedImg} /> : (
-                <View style={{ alignItems: 'center' }}><Ionicons name="camera" size={40} color="#332A1D" /><Text style={styles.pickerText}>Select Banner Image (16:9)</Text></View>
-              )}
-            </TouchableOpacity>
-
-            <TextInput style={styles.input} placeholder="Main Title (e.g. Luxurious Haar)" placeholderTextColor="#9C9281" value={newTitle} onChangeText={setNewTitle} />
-            <TextInput style={styles.input} placeholder="Subtitle (e.g. Royal Collection)" placeholderTextColor="#9C9281" value={newSubtitle} onChangeText={setNewSubtitle} />
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveBanner} disabled={isUploading}>
-              {isUploading ? <ActivityIndicator color="black" /> : <Text style={styles.saveBtnText}>UPLOAD BANNER</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -152,5 +191,7 @@ const styles = StyleSheet.create({
   pickerText: { color: '#9C9281', marginTop: 10, fontSize: 12 },
   input: { backgroundColor: '#110F0A', borderRadius: 10, padding: 15, color: 'white', marginBottom: 15, borderWidth: 1, borderColor: '#332A1D' },
   saveBtn: { backgroundColor: '#F5B041', paddingVertical: 18, borderRadius: 10, alignItems: 'center', marginTop: 10 },
-  saveBtnText: { color: 'black', fontWeight: 'bold', fontSize: 16 }
+  saveBtnText: { color: 'black', fontWeight: 'bold', fontSize: 16 },
+  emptyContainer: { alignItems: 'center', marginTop: 50 },
+  emptyText: { color: '#9C9281', marginTop: 10, fontSize: 14 }
 });
