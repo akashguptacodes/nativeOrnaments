@@ -21,6 +21,9 @@
                 "**/libc++_shared.so"
               ]
             }
+          },
+          "ios": {
+            "useFrameworks": "static"
           }
         }
       ],
@@ -42,7 +45,8 @@
         "UIBackgroundModes": [
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
