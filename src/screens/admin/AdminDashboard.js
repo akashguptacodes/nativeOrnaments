@@ -14,7 +14,7 @@ export default function AdminDashboard({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ADMIN PANEL</Text>
         <TouchableOpacity onPress={() => navigation.navigate('HOME')}>

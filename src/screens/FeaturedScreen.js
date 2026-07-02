@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import ProductModal from '../components/ProductModal';
 
 export default function FeaturedScreen({ route, navigation }) {
   const items = route.params?.items || [];
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -17,16 +20,22 @@ export default function FeaturedScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.grid}>
           {items.map((item) => (
-            <View key={item.id} style={styles.productCard}>
+            <TouchableOpacity key={item.id} style={styles.productCard} onPress={() => { setSelectedItem(item); setModalVisible(true); }}>
               <View style={styles.productImgContainer}>
                 <Image source={item.img} style={styles.productImg} />
               </View>
               <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
               <Text style={styles.productPrice}>{item.price}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
+
+      <ProductModal 
+        visible={modalVisible} 
+        item={selectedItem} 
+        onClose={() => setModalVisible(false)} 
+      />
     </SafeAreaView>
   );
 }

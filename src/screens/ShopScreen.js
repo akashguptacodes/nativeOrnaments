@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
+import ProductModal from '../components/ProductModal';
 
 const { width } = Dimensions.get('window');
 
@@ -17,6 +18,8 @@ export default function ShopScreen({ route, navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -142,7 +145,7 @@ export default function ShopScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setMenuVisible(true)}><Ionicons name="menu" size={28} color="white" /></TouchableOpacity>
@@ -189,7 +192,7 @@ export default function ShopScreen({ route, navigation }) {
             {filteredItems.map((item) => (
               <View key={item.id} style={styles.productCard}>
                 <View style={styles.productImgContainer}>
-                  <TouchableOpacity onPress={() => viewItem(item)} style={{ width: '100%', height: '100%' }}>
+                  <TouchableOpacity onPress={() => { setSelectedItem(item); setModalVisible(true); viewItem(item); }} style={{ width: '100%', height: '100%' }}>
                     <Image source={item.img} style={styles.productImg} />
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.heartBtn, wishlistIds.has(item.id) && { backgroundColor: '#F5B041' }]} onPress={() => toggleLike(item)}>
@@ -206,6 +209,12 @@ export default function ShopScreen({ route, navigation }) {
           </View>
         )}
       </ScrollView>
+
+      <ProductModal 
+        visible={modalVisible} 
+        item={selectedItem} 
+        onClose={() => setModalVisible(false)} 
+      />
     </SafeAreaView>
   );
 }

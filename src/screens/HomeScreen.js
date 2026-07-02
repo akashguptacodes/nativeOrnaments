@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
+import ProductModal from '../components/ProductModal';
 
 const BANNERS = [
   { id: '1', img: { uri: 'https://res.cloudinary.com/dhvsickga/image/upload/v1743499679/omornamentasset/Haar/ane0psszhxsolspgypba.jpg' }, title: 'Luxurious Haar', subtitle: 'Royal Collection' },
@@ -26,6 +27,8 @@ export default function HomeScreen({ navigation }) {
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [activeBanner, setActiveBanner] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const flatListRef = useRef(null);
 
   const fetchLiveRates = async () => {
@@ -212,7 +215,7 @@ export default function HomeScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
       
       {/* Top Header */}
@@ -315,7 +318,7 @@ export default function HomeScreen({ navigation }) {
               key={item.id} 
               title={item.title} 
               img={item.img} 
-              onPress={() => viewItem(item)} 
+              onPress={() => { setSelectedItem(item); setModalVisible(true); viewItem(item); }} 
               isLiked={wishlistIds.has(item.id)}
               onLike={() => toggleLike(item, wishlistIds.has(item.id))}
             />
@@ -323,6 +326,12 @@ export default function HomeScreen({ navigation }) {
         </View>
 
       </ScrollView>
+
+      <ProductModal 
+        visible={modalVisible} 
+        item={selectedItem} 
+        onClose={() => setModalVisible(false)} 
+      />
     </SafeAreaView>
   );
 }

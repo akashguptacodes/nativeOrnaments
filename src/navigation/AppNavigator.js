@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { auth, onAuthStateChanged, database } from '../config/firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import LoginScreen from '../screens/LoginScreen';
 import FinishProfileScreen from '../screens/FinishProfileScreen';
@@ -30,6 +31,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator({ isAdmin }) {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -38,8 +41,8 @@ function TabNavigator({ isAdmin }) {
           backgroundColor: '#110F0A', 
           borderTopWidth: 0, 
           elevation: 0, // Remove shadow on Android
-          height: Platform.OS === 'ios' ? 85 : 65, // Provide enough space for safe areas
-          paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+          height: Platform.OS === 'ios' ? 85 : 55 + Math.max(insets.bottom, 10), 
+          paddingBottom: Platform.OS === 'ios' ? 25 : Math.max(insets.bottom, 10),
           paddingTop: 10,
         },
         tabBarActiveTintColor: '#F5B041',

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { database, auth } from '../config/firebase';
 import SideMenu from '../components/SideMenu';
+import ProductModal from '../components/ProductModal';
 
 
 
@@ -13,6 +14,8 @@ export default function SavedScreen({ navigation }) {
   const [recentItems, setRecentItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     const uid = auth().currentUser?.uid;
@@ -63,7 +66,7 @@ export default function SavedScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} navigation={navigation} />
 
       {/* Top Header */}
@@ -93,7 +96,7 @@ export default function SavedScreen({ navigation }) {
           <Text style={{ color: '#9C9281', textAlign: 'center', marginTop: 30 }}>Your wishlist is empty.</Text>
         ) : (
           wishlistItems.map((item) => (
-            <View key={item.id} style={styles.wishlistCard}>
+            <TouchableOpacity key={item.id} style={styles.wishlistCard} onPress={() => { setSelectedItem(item); setModalVisible(true); }}>
               <Image source={item.img} style={styles.wishlistImg} />
               <View style={styles.wishlistInfo}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
@@ -103,7 +106,7 @@ export default function SavedScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
 
@@ -113,16 +116,22 @@ export default function SavedScreen({ navigation }) {
         
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recentScroll}>
           {recentItems.map((item) => (
-            <View key={item.id} style={styles.recentCard}>
+            <TouchableOpacity key={item.id} style={styles.recentCard} onPress={() => { setSelectedItem(item); setModalVisible(true); }}>
               <View style={styles.recentImgContainer}>
                 <Image source={item.img} style={styles.recentImg} />
               </View>
               <Text style={styles.recentTitle} numberOfLines={1}>{item.title}</Text>
-            </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
 
       </ScrollView>
+
+      <ProductModal 
+        visible={modalVisible} 
+        item={selectedItem} 
+        onClose={() => setModalVisible(false)} 
+      />
     </SafeAreaView>
   );
 }
